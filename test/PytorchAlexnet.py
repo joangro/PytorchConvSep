@@ -1,0 +1,42 @@
+# try to replicate alexnet
+import torch
+import torch.nn as nn
+import torchvision
+
+class AlexNet(nn.Module):
+    def __init__(self, x):
+        super(AlexNet, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 96, kernel_size=11, stride=4),     # 1st layer
+            nn.BatchNorm2d(96),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            nn.Conv2d(96,  256, kernel_size=5, stride = 1, padding = 2), # 2nd layer
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            nn.Conv2d(256,  384, kernel_size=3, stride = 1, # 3rd layer
+            nn.ReLU(),
+            nn.Conv2d(384,  384, kernel_size=3, stride = 1),# 4th layer
+            nn.ReLU(),
+            nn.Conv2d(384,  256, kernel_size=3, stride = 1),# 5th layer
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=3, stride=2)
+        )  
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=0.5),
+            nn.Linear( 256 * 6 * 6, 4096),  # 1st FC layer
+            nn.ReLU(),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096, 4096),          # 2nd FC layer
+            nn.ReLU(),
+            nn.Linear(4096, 1000)           # 2nd FC layer
+        )
+    def forward(self, x):
+        out = self.features(x)
+        classify = self.classifier(out)
+        return classify
+        
+
+if __name__ == "__main__":
+    print test

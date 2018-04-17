@@ -6,7 +6,7 @@ import torch.nn as nn
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, conv_hor_in = (64, 16), conv_ver_in = (2, 8), out_channels_in = 2, zero_padding_in = 1):
+    def __init__(self, conv_hor_in = (128, 4), conv_ver_in = (1, 64), out_channels_in = 2, zero_padding_in = 1):
         '''
         I tried to make this as customizable as possible.
         INPUT:
@@ -36,14 +36,14 @@ class AutoEncoder(nn.Module):
         # we need to use sequential, as it's a way to add modules one after the 
         # another in an ordered way
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, self.out_channels, self.conv_hor, stride = 2, padding = 0, bias = True),
+            nn.Conv2d(1, self.out_channels, self.conv_hor, stride = 1, padding = 0, bias = True),
             nn.ReLU(),   # can be any activation function
-            nn.Conv2d(self.out_channels, 1, self.conv_ver, stride = 4, padding = 1, bias = True),
+            nn.Conv2d(self.out_channels, 1, self.conv_ver, stride = 1, padding = 1, bias = True),
             nn.ReLU()
         )
         ### DECODER
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(1, self.out_channels, self.conv_ver, stride = 1, padding = zero_padding_in, bias = True),
+            nn.ConvTranspose2d(1, self.out_channels, self.conv_ver, stride = 1, padding = 1, bias = True),
             nn.ReLU(),
             nn.ConvTranspose2d(self.out_channels, 1, self.conv_hor, stride = 1, padding = 0, bias = True),
             nn.ReLU()
@@ -52,17 +52,18 @@ class AutoEncoder(nn.Module):
     def forward(self, x):        
         encode = self.encoder(x)
         print "Encoded image dimensions: "  + str(encode.size())
-        decode = self.decoder(x)
+        decode = self.decoder(encode)
+        print "Decoded image dimensions: "  + str(decode.size())
         assert str(decode.size()[2]) == '128', "Wrong output size (height, different than 128)"
         assert str(decode.size()[3]) == '128', "Wrong output size (width, different than 128)"
-        print "Decoded image dimensions: "  + str(decode.size())
+        
         print "Horizontal filter shape: "   + str(self.conv_hor)
         print "Vertical filter shape: "     + str(self.conv_ver)
         return decode
 
 # Init autoencoder objects
 
-autoencoder_standard = AutoEncoder(conv_hor_in = 16, conv_ver_in = 4, zero_padding_in = 9)
+autoencoder_standard = AutoEncoder(conv_hor_in = 16, conv_ver_in = 8, zero_padding_in = 1)
 autoencoder_audio = AutoEncoder()
 
 
@@ -98,7 +99,7 @@ loss.backward()
 optimization_standard.step()
 
 # Train Audio Autoencoder
-print "Training Standard Autoencoder"
+print "Training Audio Autoencoder"
 output = autoencoder_audio(test_data)
 print output
 loss = loss_function(output, test_data)
