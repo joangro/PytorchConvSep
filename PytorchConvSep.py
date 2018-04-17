@@ -31,6 +31,9 @@ class AutoEncoder(nn.Module):
         # init architecture parameters
         self.out_channels = out_channels_in
         
+        # Parameters for fully connected layer
+        self.width = 1
+        self.height = 1
         ### ENCODER
         # init autoencoder architecture shape
         # we need to use sequential, as it's a way to add modules one after the 
@@ -48,6 +51,11 @@ class AutoEncoder(nn.Module):
             nn.ConvTranspose2d(self.out_channels, 1, self.conv_hor, stride = 1, padding = 0, bias = True),
             nn.ReLU()
         )
+        self.classifier = nn.Sequential(
+            # nn.Dropout(p=0.5),
+            nn.Linear( self.width * self.height, 1024),  # FC layer
+            nn.ReLU()
+        )
         
     def forward(self, x):        
         encode = self.encoder(x)
@@ -56,7 +64,7 @@ class AutoEncoder(nn.Module):
         print "Decoded image dimensions: "  + str(decode.size())
         assert str(decode.size()[2]) == '128', "Wrong output size (height, different than 128)"
         assert str(decode.size()[3]) == '128', "Wrong output size (width, different than 128)"
-        
+        self.width , self.height = decode.size()[2], decode.size()[3]
         print "Horizontal filter shape: "   + str(self.conv_hor)
         print "Vertical filter shape: "     + str(self.conv_ver)
         return decode
