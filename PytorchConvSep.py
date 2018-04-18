@@ -69,52 +69,60 @@ class AutoEncoder(nn.Module):
         print "Vertical filter shape: "     + str(self.conv_ver)
         return decode
 
-# Init autoencoder objects
 
-autoencoder_standard = AutoEncoder(conv_hor_in = 16, conv_ver_in = 8, zero_padding_in = 1)
-autoencoder_audio = AutoEncoder()
+def GenerateRandomData(seed = 2451, height = 128, width = 128):
+    ### CREATE RANDOM DATA
 
+    torch.manual_seed(seed) 
+    dtype = torch.FloatTensor
+    rNum = torch.randn(height, width).type(dtype)
+    # needs 4 dimensions to work with conv2d (BatchSize, Channels, Height, Width)
+    # we add the two extra dimensions at the beginning
+    rNum = rNum.unsqueeze(0)
+    rNum = rNum.unsqueeze(0) 
+    print rNum.size()   	 	# output = (1, 1, 128, 128)
 
-# Init learning parameters
+    return rNum
+    
+if __name__ == "__main__":
+    # Init autoencoder objects
 
-learning_rate = 0.2
-optimization_standard  = torch.optim.Adagrad(autoencoder_standard.parameters(), learning_rate) # gradient descent - standard ae
-optimization_audio  = torch.optim.Adagrad(autoencoder_audio.parameters(), learning_rate) # gradient descent - audio ae
-loss_function = nn.MSELoss()
-
-
-### CREATE RANDOM DATA
-
-torch.manual_seed(2451) 
-dtype = torch.FloatTensor
-rNum = torch.randn(128, 128).type(dtype)
-# needs 4 dimensions to work with conv2d (BatchSize, Channels, Height, Width)
-# we add the two extra dimensions at the beginning
-rNum = rNum.unsqueeze(0)
-rNum = rNum.unsqueeze(0) 
-print rNum.size()   	 	# output = (1, 1, 128, 128)
-test_data = Variable(rNum)	# create a variable object of the data
+    autoencoder_standard = AutoEncoder(conv_hor_in = 16, conv_ver_in = 8, zero_padding_in = 1)
+    autoencoder_audio = AutoEncoder()
 
 
-# Train Standard Autoencoder
-print "Training Standard Autoencoder"
-output = autoencoder_standard(test_data)
-print output
-loss = loss_function(output, test_data)
+    # Init learning parameters
 
-optimization_standard.zero_grad() # reset to zero 
-loss.backward()
-optimization_standard.step()
+    learning_rate = 0.2
+    optimization_standard  = torch.optim.Adagrad(autoencoder_standard.parameters(), learning_rate) # gradient descent - standard ae
+    optimization_audio  = torch.optim.Adagrad(autoencoder_audio.parameters(), learning_rate) # gradient descent - audio ae
+    loss_function = nn.MSELoss()
 
-# Train Audio Autoencoder
-print "Training Audio Autoencoder"
-output = autoencoder_audio(test_data)
-print output
-loss = loss_function(output, test_data)
+    rNum = GenerateRandomData()
+    # create a variable object of the data
+    
+    test_data = Variable(rNum)	
 
-optimization_audio.zero_grad() # reset to zero 
-loss.backward()
-optimization_audio.step()
+    # Train Standard Autoencoder
+    print "Training Standard Autoencoder"
+    output = autoencoder_standard(test_data)
+    print output
+    loss = loss_function(output, test_data)
+
+    optimization_standard.zero_grad() # reset to zero 
+    loss.backward()
+    optimization_standard.step()
+
+    # Train Audio Autoencoder
+    print "Training Audio Autoencoder"
+    output = autoencoder_audio(test_data)
+    print output
+    loss = loss_function(output, test_data)
+
+    optimization_audio.zero_grad() # reset to zero 
+    loss.backward()
+    optimization_audio.step()
+
 
 
 
