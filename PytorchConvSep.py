@@ -81,9 +81,9 @@ def GenerateRandomData(seed = 2451, height = 128, width = 128):
     rNum = rNum.unsqueeze(0)
     rNum = rNum.unsqueeze(0) 
     print rNum.size()   	 	# output = (1, 1, 128, 128)
-
     return rNum
-    
+
+
 if __name__ == "__main__":
     # Init autoencoder objects
 
