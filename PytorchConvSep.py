@@ -51,11 +51,6 @@ class AutoEncoder(nn.Module):
             nn.ConvTranspose2d(self.out_channels, 1, self.conv_hor, stride = 1, padding = 0, bias = True),
             nn.ReLU()
         )
-        self.classifier = nn.Sequential(
-            # nn.Dropout(p=0.5),
-            nn.Linear( self.width * self.height, 1024),  # FC layer
-            nn.ReLU()
-        )
         
     def forward(self, x):        
         encode = self.encoder(x)
