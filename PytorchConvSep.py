@@ -6,7 +6,7 @@ import torch.nn as nn
 
 
 class AutoEncoder(nn.Module):
-    def __init__(self, conv_hor_in = (128, 4), conv_ver_in = (1, 64), out_channels_in = 2, zero_padding_in = 1):
+    def __init__(self, conv_hor_in = (128, 4), conv_ver_in = (1, 64), out_channels_in = 2):
         '''
         I tried to make this as customizable as possible.
         INPUT:
@@ -27,13 +27,10 @@ class AutoEncoder(nn.Module):
         # init conv/deconv filter shapes
         self.conv_hor = conv_hor_in
         self.conv_ver = conv_ver_in
-        self.zero_padding = zero_padding_in
+
         # init architecture parameters
         self.out_channels = out_channels_in
         
-        # Parameters for fully connected layer
-        self.width = 1
-        self.height = 1
         ### ENCODER
         # init autoencoder architecture shape
         # we need to use sequential, as it's a way to add modules one after the 
@@ -57,58 +54,49 @@ class AutoEncoder(nn.Module):
         print "Encoded image dimensions: "  + str(encode.size())
         decode = self.decoder(encode)
         print "Decoded image dimensions: "  + str(decode.size())
-        assert str(decode.size()[2]) == '128', "Wrong output size (height, different than 128)"
-        assert str(decode.size()[3]) == '128', "Wrong output size (width, different than 128)"
-        self.width , self.height = decode.size()[2], decode.size()[3]
         print "Horizontal filter shape: "   + str(self.conv_hor)
         print "Vertical filter shape: "     + str(self.conv_ver)
+        assert str(decode.size()[2]) == str(x.size()[2]), "Wrong output size (height, different than 128)"
+        assert str(decode.size()[3]) == str(x.size()[3]), "Wrong output size (width, different than 128)"
         return decode
 
 
 def GenerateRandomData(seed = 2451, height = 128, width = 128):
-    ### CREATE RANDOM DATA
-
-    torch.manual_seed(seed) 
-    dtype = torch.FloatTensor
+    ''' 
+        Creates random data with a standard size of 128 * 128
+        Generates a float Tensor object with dimensions 1 * 1 * height * width
+    '''
+    torch.manual_seed(seed)             # seed for replication purposes
+    dtype = torch.FloatTensor           # afterwards it can be modified to work with CUDA
+    
     rNum = torch.randn(height, width).type(dtype)
     # needs 4 dimensions to work with conv2d (BatchSize, Channels, Height, Width)
     # we add the two extra dimensions at the beginning
     rNum = rNum.unsqueeze(0)
     rNum = rNum.unsqueeze(0) 
-    print rNum.size()   	 	# output = (1, 1, 128, 128)
+    print rNum.size()   	 	        # output = (1, 1, 128, 128)
     return rNum
 
 
 if __name__ == "__main__":
-    # Init autoencoder objects
-
-    autoencoder_standard = AutoEncoder(conv_hor_in = 16, conv_ver_in = 8, zero_padding_in = 1)
+    
+    # Init autoencoder object
     autoencoder_audio = AutoEncoder()
 
 
     # Init learning parameters
-
     learning_rate = 0.2
-    optimization_standard  = torch.optim.Adagrad(autoencoder_standard.parameters(), learning_rate) # gradient descent - standard ae
     optimization_audio  = torch.optim.Adagrad(autoencoder_audio.parameters(), learning_rate) # gradient descent - audio ae
     loss_function = nn.MSELoss()
-
+    
+    # Call function to generate random data
     rNum = GenerateRandomData()
+    
     # create a variable object of the data
     
     test_data = Variable(rNum)	
 
-    # Train Standard Autoencoder
-    print "Training Standard Autoencoder"
-    output = autoencoder_standard(test_data)
-    print output
-    loss = loss_function(output, test_data)
-
-    optimization_standard.zero_grad() # reset to zero 
-    loss.backward()
-    optimization_standard.step()
-
-    # Train Audio Autoencoder
+    # Train Autoencoder
     print "Training Audio Autoencoder"
     output = autoencoder_audio(test_data)
     print output
