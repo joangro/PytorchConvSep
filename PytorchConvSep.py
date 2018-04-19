@@ -78,6 +78,39 @@ def GenerateRandomData(seed = 2451, height = 128, width = 128):
     return rNum
 
 
+class Network():
+    def __init__(self, source_in):
+        self.autoencoder = AutoEncoder()
+        self.learning_rate = 0.2
+        self.optimization  = torch.optim.Adagrad(self.autoencoder.parameters(), self.learning_rate)
+        self.loss_function = nn.MSELoss()
+        self.source = source_in
+        
+    def trainNetwork(self, data):
+        while len(data.shape) != 4:
+            if type(data).__module__ != np.__name__:
+                break
+            data = np.expand_dims(data,0)
+            
+
+        data = torch.from_numpy(data).float()   # convert to torch tensor, needs to be revised
+        data.double()
+        data_var = Variable(data)
+        # forward
+        output = self.autoencoder(data_var)
+        loss = self.loss_function(output, data_var)
+        # backward
+        self.optimization.zero_grad()   # always reset gradient to zero
+        loss.backward()
+        self.optimization.step()
+
+
+
+
+
+
+
+      
 if __name__ == "__main__":
     
     # Init autoencoder object
@@ -105,6 +138,7 @@ if __name__ == "__main__":
     optimization_audio.zero_grad() # reset to zero 
     loss.backward()
     optimization_audio.step()
+
 
 
 

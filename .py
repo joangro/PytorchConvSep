@@ -1,27 +1,13 @@
 import musdb
 import numpy as np
-from transformFFT import calculateFFT
-from PytorchConvSep import Network
+import transform
 
 class loadDatabase():
-    '''
-        Main object for reading data, training, testing and sending result
-        
-        IN: 
-            -   directory   (string):       path where database is localized
-            -   sources_in  (list):         list of string of the sources we want to train 
-                                            (there are five by default, accompainment source is     
-                                            discarded by default) 
-    '''
-    def __init__(self, directory = '../MUS-STEMS-SAMPLE',
-                 sources_in = ['vocals', 'drums', 'bass', 'other']):
+    def __init__(self, directory = '../MUS-STEMS-SAMPLE'):
         self.directory = directory
-        self.sources   = sources_in
         
     def loadTestTrack(self, track):
-        '''
-            Main function for testing (still to finish)
-        '''
+
         track.audio
         
         track.path
@@ -35,42 +21,17 @@ class loadDatabase():
         return estimates
         
     def loadTrainTrack(self, track):
-        '''
-            Main function for training from a given list of tracks
-        '''
         track.audio
         
         track.path
         
         track.rate
-        
         estimates = {}
-        autoencoders = {}
-        
-        # INIT AUTOENCODER OBJECTS FOR EACH SOURCE
-        # we create a Network object, which contains the autoencoder, for each source
-        #
-        for source in self.sources:
-            aux_source = Network(source)
-            autoencoders[source] = aux_source
-            
-            
-        # FEED TRAINING
-        # Read each target (optimal separated source for each track)
-        #   1. Calculate FFT for each target we are given (FULL TRACK FFT)
-        #   2. Send FFT to train in each sources' autoencoder in Network
-        #
-        #   Note: I don't think this is very efficient
-        #
         for source in track.targets:
-            if source not in self.sources:
-                continue
-
             estimates[source] = track.targets[str(source)].audio
             # call fft function
-            fft_source = calculateFFT( estimates[source] )
-            autoencoders[ source ].trainNetwork( fft_source )
-          
+        
+        
         '''
         estimates = {
             'vocals':   track.targets['vocals'].audio,
@@ -80,7 +41,7 @@ class loadDatabase():
         }
         '''
         return estimates
-        
+    
     
     def chooseSubset(self, subset):
         if subset is None:
@@ -112,7 +73,7 @@ def loadSet(subset = 'train'):
             subsets = subset
         )
         for i in tracks:
-            print i # why does this return None?
+            print i
 
 
 if __name__ == "__main__":
@@ -123,5 +84,9 @@ if __name__ == "__main__":
     mus = musdb.DB(root_dir = '../MUS-STEMS-SAMPLE')
     db = loadDatabase()
     loadSet('train')
+    
 
+
+
+        
 
