@@ -85,12 +85,16 @@ class Network():
         self.optimization  = torch.optim.Adagrad(self.autoencoder.parameters(), self.learning_rate)
         self.loss_function = nn.MSELoss()
         self.source = source_in
+        self.iter = 0
+        self.output = torch.FloatTensor(1,1)
         
     def trainNetwork(self, data):
+        print "Training %s source" % (self.source)
         while len(data.shape) != 4:
-            if type(data).__module__ != np.__name__:
-                break
-            data = np.expand_dims(data,0)
+            if type(data).__module__ == np.__name__:
+                data = np.expand_dims(data,0)
+            else:
+                data = rNum.unsqueeze(0)       
             
 
         data = torch.from_numpy(data).float()   # convert to torch tensor, needs to be revised
@@ -103,14 +107,14 @@ class Network():
         self.optimization.zero_grad()   # always reset gradient to zero
         loss.backward()
         self.optimization.step()
+        self.iter += 1
+        print "Error (mse):  ", loss.data[0]
+        self.output = output.data
+        
+    def testNetwork(self, data):
+        pass
 
 
-
-
-
-
-
-      
 if __name__ == "__main__":
     
     # Init autoencoder object

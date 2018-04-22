@@ -17,6 +17,7 @@ class loadDatabase():
                  sources_in = ['vocals', 'drums', 'bass', 'other']):
         self.directory = directory
         self.sources   = sources_in
+        self.autoencoders = {}
         
     def loadTestTrack(self, track):
         '''
@@ -28,9 +29,15 @@ class loadDatabase():
         
         track.rate
         
-        estimates = {
-            'track': track.audio,
-        }
+        for source in track.targets:
+            if source not in self.sources:
+                continue
+
+            estimates[source] = track.targets[str(source)].audio
+            # call fft function
+            fft_source = calculateFFT( estimates[source] )
+            self.autoencoders[ source ].testNetwork( fft_source )
+            
             
         return estimates
         
@@ -45,14 +52,14 @@ class loadDatabase():
         track.rate
         
         estimates = {}
-        autoencoders = {}
+
         
         # INIT AUTOENCODER OBJECTS FOR EACH SOURCE
         # we create a Network object, which contains the autoencoder, for each source
         #
         for source in self.sources:
             aux_source = Network(source)
-            autoencoders[source] = aux_source
+            self.autoencoders[source] = aux_source
             
             
         # FEED TRAINING
@@ -69,7 +76,7 @@ class loadDatabase():
             estimates[source] = track.targets[str(source)].audio
             # call fft function
             fft_source = calculateFFT( estimates[source] )
-            autoencoders[ source ].trainNetwork( fft_source )
+            self.autoencoders[ source ].trainNetwork( fft_source )
           
         '''
         estimates = {
@@ -113,6 +120,13 @@ def loadSet(subset = 'train'):
         )
         for i in tracks:
             print i # why does this return None?
+    else:
+         tracks = mus.run(
+            db.loadTestTrack,
+            estimates_dir='./Estimates',
+            tracks = track_list,
+            subsets = subset
+        )   
 
 
 if __name__ == "__main__":
@@ -123,5 +137,7 @@ if __name__ == "__main__":
     mus = musdb.DB(root_dir = '../MUS-STEMS-SAMPLE')
     db = loadDatabase()
     loadSet('train')
+    #loadSet('test')
+    
 
 
