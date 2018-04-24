@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
-
+from collections import OrderedDict
 
 
 class AutoEncoder(nn.Module):
@@ -90,46 +90,53 @@ class AutoEncoder(nn.Module):
             nn.ReLU()
         )
         
-        self.layers = {
+        # put the layers and deconv in libraries to make it easier to work with
+        self.layers = OrderedDict({
             "voice": self.layer_voice,
             "other": self.layer_other,
+            "drums": self.layer_drums,
             "bass":  self.layer_bass,
-            "drums": self.layer_drums
-            }
+
+            })
             
-        self.deconvs = {
+        self.deconvs = OrderedDict({
             "voice": self.decode_voice,
             "other": self.decode_other,
+            "drums": self.decode_drums,
             "bass":  self.decode_bass,
-            "drums": self.decode_drums
-            }
+
+            })
         
         # OUTPUT MATRIX
         # Create a tensor variable with shape (15, 1, 30, 513)
         # care, as the channels dimension is initialized with 1, and we are appending to it
-        self.final_output_np = np.ndarray(shape=(15, 2, 30, 513))
-        self.final_output_np = torch.from_numpy(self.final_output_np).float()
-        self.final_output = Variable(self.final_output_np)
-        print self.final_output_np.type()
+        self.final_output = Variable()
+
         
     def forward(self, x):        
         encode = self.encoder(x)
         print " Encoded input shape ", encode.shape
         layer_output = self.layer_first(encode)
-        print " FIrst nn layer shape ", layer_output.shape
+        print " First NN layer shape ", layer_output.shape
+        
         output_flag = 0
         for key in self.layers:
-            print "Decoding "  + key +  " source..."
+            print "\nDecoding "  + key +  " source..."
+            
             source_output = self.layers[key](layer_output)
-            print "nn source ", source_output.shape
+            print "Source NN shape:     ", source_output.shape
+            
             source_deconv = self.deconvs[key](source_output)
+            print "Source deconv shape: ", source_output.shape
+            # The first time we reemplace the output with the current source 
+            # output in the first two channels, otherwise we append
             if  output_flag == 0:
                 self.final_output = source_deconv
                 output_flag = 1
             else:
                 self.final_output = torch.cat((source_deconv, self.final_output), dim = 1)
                 
-            print self.final_output.shape
+            print "New number of channels: ", self.final_output.shape[1]
             
         return self.final_output
 
