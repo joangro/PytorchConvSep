@@ -37,56 +37,52 @@ class AutoEncoder(nn.Module):
         # another in an ordered way
         self.encoder = nn.Sequential(
             nn.Conv2d(2, self.out_channels, self.conv_hor, stride = 1, padding = 0, bias = True),
-            nn.ReLU(),   # can be any activation function
-            nn.Conv2d(self.out_channels, 2, self.conv_ver, stride = 1, padding = 1, bias = True),
-            nn.ReLU()
+            nn.Conv2d(self.out_channels, 2, self.conv_ver, stride = 1, padding = 0, bias = True)
         )
         
         ### DECODERS
         self.decode_drums = nn.Sequential(
-            nn.ConvTranspose2d(2, self.out_channels, self.conv_ver, stride = 1, padding = 1, bias = True),
+            nn.ConvTranspose2d(2, self.out_channels, self.conv_ver, stride = 1, padding = 0, bias = True),
             nn.ReLU(),
             nn.ConvTranspose2d(self.out_channels, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
             nn.ReLU()
         )
         self.decode_voice = nn.Sequential(
-            nn.ConvTranspose2d(2, self.out_channels, self.conv_ver, stride = 1, padding = 1, bias = True),
+            nn.ConvTranspose2d(2, self.out_channels, self.conv_ver, stride = 1, padding = 0, bias = True),
             nn.ReLU(),
             nn.ConvTranspose2d(self.out_channels, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
             nn.ReLU()
         )
         self.decode_bass = nn.Sequential(
-            nn.ConvTranspose2d(2, self.out_channels, self.conv_ver, stride = 1, padding = 1, bias = True),
+            nn.ConvTranspose2d(2, self.out_channels, self.conv_ver, stride = 1, padding = 0, bias = True),
             nn.ReLU(),
             nn.ConvTranspose2d(self.out_channels, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
             nn.ReLU()
         )
         self.decode_other = nn.Sequential(
-            nn.ConvTranspose2d(2, self.out_channels, self.conv_ver, stride = 1, padding = 1, bias = True),
+            nn.ConvTranspose2d(2, self.out_channels, self.conv_ver, stride = 1, padding = 0, bias = True),
             nn.ReLU(),
             nn.ConvTranspose2d(self.out_channels, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
             nn.ReLU()
         )
         
         ### FULLY CONNECTED LAYERS
-        self.layer_first = nn.Sequential(
-            nn.Linear(3, 128),
-            nn.ReLU()
-        )
+        self.layer_first = nn.Linear(38, 128)
+
         self.layer_drums = nn.Sequential(
-            nn.Linear(128, 3),
+            nn.Linear(128, 38),
             nn.ReLU()
         )
         self.layer_voice = nn.Sequential(
-            nn.Linear(128, 3),
+            nn.Linear(128, 38),
             nn.ReLU()
         )
         self.layer_bass = nn.Sequential(
-            nn.Linear(128, 3),
+            nn.Linear(128, 38),
             nn.ReLU()
         )
         self.layer_other = nn.Sequential(
-            nn.Linear(128, 3),
+            nn.Linear(128, 38),
             nn.ReLU()
         )
         
@@ -115,19 +111,21 @@ class AutoEncoder(nn.Module):
         
     def forward(self, x):        
         encode = self.encoder(x)
-        print " Encoded input shape ", encode.shape
+
+        encode = encode.view(15, -1)
+        # print " Encoded input shape ", encode.shape
         layer_output = self.layer_first(encode)
-        print " First NN layer shape ", layer_output.shape
+        # print " First NN layer shape ", layer_output.shape
         
         output_flag = 0
         for key in self.layers:
-            print "\nDecoding "  + key +  " source..."
+            # print "\nDecoding "  + key +  " source..."
             
             source_output = self.layers[key](layer_output)
-            print "Source NN shape:     ", source_output.shape
+            # print "Source NN shape:     ", source_output.shape
             
-            source_deconv = self.deconvs[key](source_output)
-            print "Source deconv shape: ", source_output.shape
+            source_deconv = self.deconvs[key](source_output.view(-1,2,19,1))
+            # print "Source deconv shape: ", source_output.shape
             # The first time we reemplace the output with the current source 
             # output in the first two channels, otherwise we append
             if  output_flag == 0:
@@ -136,7 +134,7 @@ class AutoEncoder(nn.Module):
             else:
                 self.final_output = torch.cat((source_deconv, self.final_output), dim = 1)
                 
-            print "New number of channels: ", self.final_output.shape[1]
+            # print "New number of channels: ", self.final_output.shape[1]
             
         return self.final_output
 
@@ -155,7 +153,7 @@ def GenerateRandomData(seed = 2451, dimension = [128, 128]):
     while len(rNum.shape) is not 4:
         rNum = rNum.unsqueeze(0)
   
-    print rNum.size()   	 	        
+    # print rNum.size()                   
     return rNum
     
     
@@ -174,16 +172,15 @@ def trainNetwork(track = 0, sources = 0):
     
     # create a variable object of the data
     
-    test_data = Variable(rNum)	
+    test_data = Variable(rNum)  
 
     # Train Autoencoder
-    print "Training Audio Autoencoder"
+    # print "Training Audio Autoencoder"
     output = autoencoder_audio(test_data)
     # output
     # doesn't work because of the new output size ( 16, 8, 30, 513 )
     '''
     loss = loss_function(output, test_data)
-
     optimization_audio.zero_grad() # reset to zero 
     loss.backward()
     optimization_audio.step()
@@ -192,9 +189,4 @@ def trainNetwork(track = 0, sources = 0):
 if __name__ == "__main__":
     trainNetwork()
 
-    
-
-
-
-
-
+ 
