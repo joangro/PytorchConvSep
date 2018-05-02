@@ -285,6 +285,21 @@ def denormalize(inputs, feat, mode=config.norm_mode_in):
         outputs = (inputs*stds)+means
     return outputs
 
+def GenerateRandomData(seed = 2451, dimension = [30, 513]):
+    ''' 
+        Creates random data with a standard size of 128 * 128
+        Generates a float Tensor object with dimensions 1 * 1 * height * width
+    '''
+    torch.manual_seed(seed)             # seed for replication purposes
+    dtype = torch.FloatTensor           # afterwards it can be modified to work with CUDA
+    
+    rNum = torch.randn(dimension).type(dtype)
+    # needs 4 dimensions to work with conv2d (BatchSize, Channels, Height, Width)
+    # we add the two extra dimensions at the beginning
+    while len(rNum.shape) is not 4:
+        rNum = rNum.unsqueeze(0)
+    return rNum
+    
 def main():
     out_feats = input_to_feats(config.wav_dir+'10161_chorus.wav')
     feats_to_audio(out_feats, 'test')
