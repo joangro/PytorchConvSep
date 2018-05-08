@@ -6,6 +6,8 @@ from collections import OrderedDict
 from data_pipeline import data_gen
 import matplotlib.pyplot as plt
 import config
+import utils
+import datetime
 
 
 class AutoEncoder(nn.Module):
@@ -132,61 +134,66 @@ class AutoEncoder(nn.Module):
         return self.final_output
 
 
-def trainNetwork(track = 0, sources = 0):
 
+    
+def trainNetwork(track = 0, sources = 0):
     assert torch.cuda.is_available(), "Code only usable with cuda"
 
+    #autoencoder =  AutoEncoder().cuda()
+    
     autoencoder =  AutoEncoder().cuda()
 
-    optimizer   =  torch.optim.Adagrad( autoencoder.parameters(), config.init_lr )
+    optimizer   =  torch.optim.Adagrad( autoencoder.parameters(), 0.0001 )
+    
+    #loss_func   =  nn.MSELoss( size_average=False )
+    loss_func   =  nn.L1Loss( size_average=False )
+    
+    train_evol = []
+    
+    count = 0
+    time =  datetime.datetime.now().strftime("%d-%m_%H:%M")
+    print ("Time ", time)
+    f = open("./error_out/" + time, "w")
 
-    loss_func   =  nn.MSELoss( size_average=False )
-    #loss_func   =  nn.L1Loss( size_average=False )
-
-    for epoch in range(10):
-
+    for epoch in range(config.num_epochs):
+     
         generator = data_gen()
-
+        
         train_loss = 0
 
-        train_evol = 0
-
         optimizer.zero_grad()
-
-        count = 0
-
-
-        for inputs, targets in generator:
         
-            targets = torch.from_numpy(targets).cuda()
-            data = torch.from_numpy(inputs).cuda()
+        for inputs, targets in generator:
             
-            data = Variable(data)
+            targets_cuda = torch.from_numpy(targets).cuda()            
+            data_cuda = torch.from_numpy(inputs).cuda()
+                        
+            data = Variable(data_cuda)
             
             output = autoencoder(data)
+        
+            step_loss = loss_func(output, targets_cuda)
+            
+            train_loss += step_loss.item()
 
-            step_loss = loss_func(output, targets)
-
-            train_loss += step_loss
-
-            train_evol.append(train_loss)
-
-            loss.backward()
-
+            step_loss.backward()
+    
             optimizer.step()
 
-            utils.progress(count,config.batches_per_epoch_train, suffix = 'training done')
-
-            count+=1
-
+        train_evol.append(train_loss)
+        
+        utils.progress(count,config.batches_per_epoch_train, suffix = 'training done')
+        
+        count+=1   
+        
         if (epoch+1)%config.print_every == 0:
-            print (train_loss)
+            #print('epoch %d/%d, epoch total loss: %0.0f' % (epoch+1, config.num_epochs, train_loss))
+            print >> f, 'epoch %d/%d, epoch total loss: %0.0f' % (epoch+1, config.num_epochs, train_loss)
         if (epoch+1)%config.save_every  == 0:
-            torch.save(autoencoder.state_dict(), './joan-test')
-            print (autoencoder.state_dict())
-
-
-
+            torch.save(autoencoder.state_dict(), './joan-test/' + time)
+            #print (autoencoder.state_dict())
+    # always save model at the end
+    torch.save(autoencoder.state_dict(), './joan-test/' + time)
+        
 if __name__ == "__main__":
     trainNetwork()
-
