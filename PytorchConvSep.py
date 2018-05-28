@@ -138,39 +138,45 @@ class AutoEncoder(nn.Module):
 
 
     
-def trainNetwork(save_name = 'model'):
+def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(config.batches_per_epoch_train) + '_bs' + str(config.batch_size) ):
     assert torch.cuda.is_available(), "Code only usable with cuda"
-    
+
+    #autoencoder =  AutoEncoder().cuda()
+
     autoencoder =  AutoEncoder().cuda()
 
     optimizer   =  torch.optim.Adagrad(autoencoder.parameters(), 0.0001 )
-    
+
     #loss_func   =  nn.MSELoss( size_average=False )
     loss_func   =  nn.L1Loss( size_average=False )
-    
-    train_evol = []
-	
 
+    train_evol = []
+
+    count = 0
+
+    alpha = 0.001
+    beta  = 0.01
+    beta_voc = 0.03
 
     for epoch in range(config.num_epochs):
 
         start_time = time.time()
-     
+
         generator = data_gen()
-        
+
         train_loss = 0
 
         optimizer.zero_grad()
 
         count = 0
-        
+
         for inputs, targets in generator:
-            targets = targets * np.linspace(1.0,0.7,513)
-        
-            targets_cuda = Variable(torch.FloatTensor(targets)).cuda()         
+            targets = targets *np.linspace(1.0,0.7,513)
+
+            targets_cuda = Variable(torch.FloatTensor(targets)).cuda()
             inputs = Variable(torch.FloatTensor(inputs)).cuda()
-                        
-            
+
+
             output = autoencoder(inputs)
 
             mask_vocals = output[:,:2,:,:]
@@ -198,25 +204,33 @@ def trainNetwork(save_name = 'model'):
             targets_others = targets_cuda[:,6:,:,:]
 
             step_loss_vocals = loss_func(out_vocals, targets_vocals)
+            alpha_diff =  alpha * loss_func(out_vocals, targets_bass)
+            alpha_diff += alpha * loss_func(out_vocals, targets_drums)
+            beta_other_voc   =  beta_voc * loss_func(out_vocals, targets_others)
 
             step_loss_drums = loss_func(out_drums, targets_drums)
+            alpha_diff +=  alpha *  loss_func(out_drums, targets_vocals)
+            alpha_diff +=  alpha *  loss_func(out_drums, targets_bass)
+            beta_other  =  beta  *  loss_func(out_drums, targets_others)
 
             step_loss_bass = loss_func(out_bass, targets_bass)
+            alpha_diff +=  alpha *  loss_func(out_bass, targets_vocals)
+            alpha_diff +=  alpha *  loss_func(out_bass, targets_drums)
+            beta_other  =  beta  *  loss_func(out_bass, targets_others)
 
-            step_loss_others = loss_func(out_others, targets_others)
+            # add regularization terms from paper
+            step_loss = abs(step_loss_vocals + step_loss_drums + step_loss_bass - beta_other - alpha_diff - beta_other_voc)
 
-            step_loss = step_loss_vocals+step_loss_drums+step_loss_bass+step_loss_others
-            
             train_loss += step_loss.item()
 
             step_loss.backward()
-    
-            optimizer.step()    
-            
+
+            optimizer.step()
+
             utils.progress(count,config.batches_per_epoch_train, suffix = 'training done')
-            
+
             count+=1
-		
+
         train_evol.append([step_loss_vocals/count,step_loss_drums/count, step_loss_bass/count, step_loss_others/count, train_loss/count])
         duration = time.time()-start_time
 
@@ -227,7 +241,6 @@ def trainNetwork(save_name = 'model'):
             np.save(config.log_dir+'train_loss',train_evol)
 
     torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch)+'.pt')
-
 
 
 def evalNetwork(file_name, load_name='model', plot = False):
