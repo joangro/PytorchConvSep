@@ -6,6 +6,10 @@ from collections import OrderedDict
 from data_pipeline import data_gen
 import matplotlib.pyplot as plt
 import config
+import utils
+import datetime
+import sys
+import time
 
 
 class AutoEncoder(nn.Module):
@@ -132,61 +136,207 @@ class AutoEncoder(nn.Module):
         return self.final_output
 
 
-def trainNetwork(track = 0, sources = 0):
 
+    
+def trainNetwork(save_name = 'model'):
     assert torch.cuda.is_available(), "Code only usable with cuda"
-
+    
     autoencoder =  AutoEncoder().cuda()
 
-    optimizer   =  torch.optim.Adagrad( autoencoder.parameters(), config.init_lr )
+    optimizer   =  torch.optim.Adagrad(autoencoder.parameters(), 0.0001 )
+    
+    #loss_func   =  nn.MSELoss( size_average=False )
+    loss_func   =  nn.L1Loss( size_average=False )
+    
+    train_evol = []
+	
 
-    loss_func   =  nn.MSELoss( size_average=False )
-    #loss_func   =  nn.L1Loss( size_average=False )
 
-    for epoch in range(10):
+    for epoch in range(config.num_epochs):
 
+        start_time = time.time()
+     
         generator = data_gen()
-
+        
         train_loss = 0
-
-        train_evol = 0
 
         optimizer.zero_grad()
 
         count = 0
-
-
-        for inputs, targets in generator:
         
-            targets = torch.from_numpy(targets).cuda()
-            data = torch.from_numpy(inputs).cuda()
+        for inputs, targets in generator:
+            targets = targets * np.linspace(1.0,0.7,513)
+        
+            targets_cuda = Variable(torch.FloatTensor(targets)).cuda()         
+            inputs = Variable(torch.FloatTensor(inputs)).cuda()
+                        
             
-            data = Variable(data)
+            output = autoencoder(inputs)
+
+            mask_vocals = output[:,:2,:,:]
+
+            mask_drums = output[:,2:4,:,:]
+
+            mask_bass = output[:,4:6,:,:]
+
+            mask_others = output[:,6:,:,:]
+
+            out_vocals = inputs * mask_vocals
+
+            out_drums = inputs * mask_drums
+
+            out_bass = inputs * mask_bass
+
+            out_others = inputs * mask_others
+
+            targets_vocals = targets_cuda[:,:2,:,:]
+
+            targets_drums = targets_cuda[:,2:4,:,:]
+
+            targets_bass = targets_cuda[:,4:6,:,:]
+
+            targets_others = targets_cuda[:,6:,:,:]
+
+            step_loss_vocals = loss_func(out_vocals, targets_vocals)
+
+            step_loss_drums = loss_func(out_drums, targets_drums)
+
+            step_loss_bass = loss_func(out_bass, targets_bass)
+
+            step_loss_others = loss_func(out_others, targets_others)
+
+            step_loss = step_loss_vocals+step_loss_drums+step_loss_bass+step_loss_others
             
-            output = autoencoder(data)
+            train_loss += step_loss.item()
 
-            step_loss = loss_func(output, targets)
-
-            train_loss += step_loss
-
-            train_evol.append(train_loss)
-
-            loss.backward()
-
-            optimizer.step()
-
+            step_loss.backward()
+    
+            optimizer.step()    
+            
             utils.progress(count,config.batches_per_epoch_train, suffix = 'training done')
-
+            
             count+=1
+		
+        train_evol.append([step_loss_vocals/count,step_loss_drums/count, step_loss_bass/count, step_loss_others/count, train_loss/count])
+        duration = time.time()-start_time
 
         if (epoch+1)%config.print_every == 0:
-            print (train_loss)
+            print('epoch %d/%d, took %0.00f seconds, epoch total loss: %0.0f' % (epoch+1, config.num_epochs, duration, train_loss))
         if (epoch+1)%config.save_every  == 0:
-            torch.save(autoencoder.state_dict(), './joan-test')
-            print (autoencoder.state_dict())
+            torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch)+'.pt')
+            np.save(config.log_dir+'train_loss',train_evol)
+
+    torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch)+'.pt')
 
 
 
-if __name__ == "__main__":
-    trainNetwork()
+def evalNetwork(file_name, load_name='model', plot = False):
+    autoencoder_audio = AutoEncoder().cuda()
+    epoch = 50
+    autoencoder_audio.load_state_dict(torch.load(config.log_dir+load_name+'_'+str(epoch)+'.pt'))
 
+
+    audio,fs = stempeg.read_stems(os.path.join(config.wav_dir_train,file_name), stem_id=[0,1,2,3,4])
+
+    mixture = audio[0]
+
+    drums = audio[1]
+
+    bass = audio[2]
+
+    acc = audio[3]
+
+    vocals = audio[4]
+
+    mix_stft, mix_phase = utils.stft_stereo(mixture,phase=True)
+
+    drums_stft = utils.stft_stereo(drums)
+
+    bass_stft = utils.stft_stereo(bass)
+
+    acc_stft = utils.stft_stereo(acc)
+
+    voc_stft = utils.stft_stereo(vocals)
+
+    in_batches, nchunks_in = utils.generate_overlapadd(mix_stft)
+
+    out_batches = []
+
+    for in_batch in in_batches:
+        # import pdb;pdb.set_trace()
+        in_batch = Variable(torch.FloatTensor(in_batch)).cuda()
+        out_batch = autoencoder_audio(in_batch)
+        out_batches.append(np.array(out_batch.data.cpu().numpy()))
+        
+
+    out_batches = np.array(out_batches)
+    
+
+    out_vocals = out_batches[:,:,:2,:,:]
+
+    out_drums = out_batches[:,:,2:4,:,:]
+
+    out_bass = out_batches[:,:,4:6,:,:]
+
+    out_others = out_batches[:,:,6:,:,:]
+    
+    out_drums = utils.overlapadd(out_drums, nchunks_in) 
+
+    out_bass = utils.overlapadd(out_bass, nchunks_in) 
+
+    out_others = utils.overlapadd(out_others, nchunks_in) 
+
+    out_vocals = utils.overlapadd(out_vocals, nchunks_in) 
+
+    if plot:
+        plt.figure(1)
+        plt.suptitle(file_name[:-9])
+        ax1 = plt.subplot(411)
+        plt.imshow(np.log(drums_stft[0].T),aspect = 'auto', origin = 'lower')
+        ax1.set_title("Drums Left Channel Ground Truth", fontsize = 10)
+        ax2 = plt.subplot(412)
+        plt.imshow(np.log(out_drums[0].T),aspect = 'auto', origin = 'lower')
+        ax2.set_title("Drums Left Channel Network Output", fontsize = 10)
+        ax3 = plt.subplot(413)
+        plt.imshow(np.log(drums_stft[1].T),aspect = 'auto', origin = 'lower')
+        ax3.set_title("Drums Right Channel Ground Truth", fontsize = 10)
+        ax4 = plt.subplot(414)
+        plt.imshow(np.log(out_drums[1].T),aspect = 'auto', origin = 'lower')
+        ax4.set_title("Drums Right Channel Network Output", fontsize = 10)
+        plt.show()
+
+def plot_loss():
+    train_loss = np.load(config.log_dir+'train_loss.npy')
+    plt.plot(train_loss)
+    plt.show()
+        
+if __name__ == '__main__':
+    if sys.argv[1] == '-train' or sys.argv[1] == '--train' or sys.argv[1] == '--t' or sys.argv[1] == '-t':
+        print("Training")
+        trainNetwork()
+    elif sys.argv[1] == '-synth' or sys.argv[1] == '--synth' or sys.argv[1] == '--s' or sys.argv[1] == '-s':
+        if len(sys.argv)<3:
+            print("Please give a file to synthesize")
+        else:
+            file_name = sys.argv[2]
+            if not file_name.endswith('.stem.mp4'):
+                file_name = file_name+'.stem.mp4'
+
+            print("Synthesizing File %s"% file_name)
+            if '-p' in sys.argv or '--p' in sys.argv or '-plot' in sys.argv or '--plot' in sys.argv:                
+
+                print("Just showing plots for File %s"% sys.argv[2])
+                evalNetwork(file_name,plot=True)
+    elif sys.argv[1] == '-plot' or sys.argv[1] == '--pl' or sys.argv[1] == '--plot_loss':
+        plot_loss()
+            # else:
+            #     print("Synthesizing File %s, Not Showing Plots"% sys.argv[2])
+            #     synth_file(file_name,show_plots=False, save_file=True)
+
+    elif sys.argv[1] == '-help' or sys.argv[1] == '--help' or sys.argv[1] == '--h' or sys.argv[1] == '-h':
+        print("%s --train to train the model"%sys.argv[0])
+        print("%s --synth <filename> to synthesize file"%sys.argv[0])
+        print("%s --synth <filename> -- plot to synthesize file and show plots"%sys.argv[0])
+        print("%s --synth <filename> -- plot --ns to just show plots"%sys.argv[0])
+    else:
+        print("Unable to decipher inputs please use %s --help for help on how to use this function"%sys.argv[0])

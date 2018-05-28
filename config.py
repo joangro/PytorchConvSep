@@ -6,12 +6,12 @@ wav_dir_test = '../../datasets/musdb18/test/'
 
 
 
-data_dir = './data/'
+data_dir = '/media/joan/Data/Users/Joan/Desktop/DATA/'
 log_dir = './log/'
 data_log = './log/data_log.log'
+data_aug = True
 
-
-dir_hdf5 = './data_h5py/'
+dir_hdf5 = '/media/joan/Data/Users/Joan/Desktop/DATA/'
 stat_dir = './stats/'
 h5py_file_train = './data_h5py/train.hdf5'
 h5py_file_val = './data_h5py/val.hdf5'
@@ -30,8 +30,8 @@ features = 513
 split = 0.9
 
 # Hyperparameters
-num_epochs = 600
-batches_per_epoch_train = 1000
+num_epochs = 50
+batches_per_epoch_train = 125
 batches_per_epoch_val = 100
 batch_size = 15 
 samples_per_file = 5

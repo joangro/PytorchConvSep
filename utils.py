@@ -85,11 +85,17 @@ def stft(data, window=np.hanning(1024),
     return STFT
 
 
-def stft_stereo(data):
+def stft_stereo(data, phase=False):
     assert data.shape[1] == 2
-    stft_left = abs(stft(data[:,0]))
-    stft_right = abs(stft(data[:,1]))
-    return np.array([stft_left,stft_right])
+    if phase:
+        stft_left = stft(data[:,0])
+        stft_right = stft(data[:,1])
+        return np.array([abs(stft_left),abs(stft_right)]),np.array([np.angle(stft_left),np.angle(stft_right)])
+    else:
+        stft_left = abs(stft(data[:,0]))
+        stft_right = abs(stft(data[:,1]))
+        return np.array([stft_left,stft_right])
+
 
 def progress(count, total, suffix=''):
     bar_len = 60
@@ -124,75 +130,7 @@ def file_to_stft(input_file):
     mix_stft=abs(stft(mixture))
     return mix_stft
 
-def input_to_feats(input_file, mode=config.comp_mode):
-    audio,fs=sf.read(input_file)
-    vocals=np.array(audio[:,1])
-    feats=pw.wav2world(vocals,fs,frame_period=5.80498866)
 
-    ap = feats[2].reshape([feats[1].shape[0],feats[1].shape[1]]).astype(np.float32)
-    ap = 10.*np.log10(ap**2)
-    harm=10*np.log10(feats[1].reshape([feats[2].shape[0],feats[2].shape[1]]))
-
-    y=69+12*np.log2(feats[0]/440)
-    nans, x= nan_helper(y)
-    naners=np.isinf(y)
-    y[nans]= np.interp(x(nans), x(~nans), y[~nans])
-    # y=[float(x-(min_note-1))/float(max_note-(min_note-1)) for x in y]
-    y=np.array(y).reshape([len(y),1])
-    guy=np.array(naners).reshape([len(y),1])
-    y=np.concatenate((y,guy),axis=-1)
-
-    if mode == 'mfsc':
-        harmy=sp_to_mfsc(harm,60,0.45)
-        apy=sp_to_mfsc(ap,4,0.45)
-    elif mode == 'mgc':
-        harmy=sp_to_mgc(harm,60,0.45)
-        apy=sp_to_mgc(ap,4,0.45)
-
-
-    out_feats=np.concatenate((harmy,apy,y.reshape((-1,2))),axis=1) 
-
-    # harm_in=mgc_to_sp(harmy, 1025, 0.45)
-    # ap_in=mgc_to_sp(apy, 1025, 0.45)
-
-
-    return out_feats
-
-
-def feats_to_audio(in_feats,filename, fs=config.fs,  mode=config.comp_mode):
-    harm = in_feats[:,:60]
-    ap = in_feats[:,60:-2]
-    f0 = in_feats[:,-2:]
-    f0[:,0] = f0[:,0]-69
-    f0[:,0] = f0[:,0]/12
-    f0[:,0] = 2**f0[:,0]
-    f0[:,0] = f0[:,0]*440
-
-
-    f0 = f0[:,0]*(1-f0[:,1])
-
-
-    if mode == 'mfsc':
-        harm = mfsc_to_mgc(harm)
-        ap = mfsc_to_mgc(ap)
-
-
-    harm = mgc_to_sp(harm, 1025, 0.45)
-    ap = mgc_to_sp(ap, 1025, 0.45)
-
-    harm = 10**(harm/10)
-    ap = 10**(ap/20)
-
-    y=pw.synthesize(f0.astype('double'),harm.astype('double'),ap.astype('double'),fs,5.80498866)
-    sf.write(config.val_dir+filename+'.wav',y,fs)
-    # return harm, ap, f0
-
-def test(ori, re):
-    plt.subplot(211)
-    plt.imshow(ori.T,origin='lower',aspect='auto')
-    plt.subplot(212)
-    plt.imshow(re.T,origin='lower',aspect='auto')
-    plt.show()
 
 
 def generate_overlapadd(allmix,time_context=config.max_phr_len, overlap=config.max_phr_len/2,batch_size=config.batch_size):
@@ -201,17 +139,17 @@ def generate_overlapadd(allmix,time_context=config.max_phr_len, overlap=config.m
 
     i=0
     start=0  
-    while (start + time_context) < allmix.shape[0]:
+    while (start + time_context) < allmix.shape[1]:
         i = i + 1
         start = start - overlap + time_context 
-    fbatch = np.zeros([int(np.ceil(float(i)/batch_size)),batch_size,time_context,input_size])+1e-10
+    fbatch = np.zeros([int(np.ceil(float(i)/batch_size)),batch_size,2,time_context,input_size])+1e-10
     
     
     i=0
     start=0  
 
-    while (start + time_context) < allmix.shape[0]:
-        fbatch[int(i/batch_size),int(i%batch_size),:,:]=allmix[int(start):int(start+time_context),:]
+    while (start + time_context) < allmix.shape[1]:
+        fbatch[int(i/batch_size),int(i%batch_size),:,:,:]=allmix[:,int(start):int(start+time_context),:]
         i = i + 1 #index for each block
         start = start - overlap + time_context #starting point for each block
     
@@ -232,24 +170,28 @@ def overlapadd(fbatch,nchunks,overlap=int(config.max_phr_len/2)):
     window = np.repeat(np.expand_dims(window, axis=1),input_size,axis=1)
     
 
-    sep = np.zeros((int(nchunks*(time_context-overlap)+time_context),input_size))
+    sep = np.zeros((2,int(nchunks*(time_context-overlap)+time_context),input_size))
+
+    # import pdb;pdb.set_trace()
 
     
     i=0
     start=0 
     while i < nchunks:
-        #import pdb;pdb.set_trace()
-        s = fbatch[int(i/batch_size),int(i%batch_size),:,:]
+        # import pdb;pdb.set_trace()
+        sa = fbatch[int(i/batch_size),int(i%batch_size),:,:,:]
+        # import pdb;pdb.set_trace()
 
         #print s1.shape
         if start==0:
-            sep[0:time_context] = s
+            sep[:,0:time_context,:] = sa
 
         else:
             #print start+overlap
             #print start+time_context
-            sep[int(start+overlap):int(start+time_context)] = s[overlap:time_context]
-            sep[start:int(start+overlap)] = window[overlap:]*sep[start:int(start+overlap)] + window[:overlap]*s[:overlap]
+            sep[:,int(start+overlap):int(start+time_context),:] = sa[:,overlap:time_context]
+            # import pdb;pdb.set_trace()
+            sep[:,start:int(start+overlap),:] = window[overlap:]*sep[:,start:int(start+overlap),:] + window[:overlap]*sa[:,:overlap]
         i = i + 1 #index for each block
         start = int(start - overlap + time_context) #starting point for each block
     return sep  
@@ -285,21 +227,6 @@ def denormalize(inputs, feat, mode=config.norm_mode_in):
         outputs = (inputs*stds)+means
     return outputs
 
-def GenerateRandomData(seed = 2451, dimension = [30, 513]):
-    ''' 
-        Creates random data with a standard size of 128 * 128
-        Generates a float Tensor object with dimensions 1 * 1 * height * width
-    '''
-    torch.manual_seed(seed)             # seed for replication purposes
-    dtype = torch.FloatTensor           # afterwards it can be modified to work with CUDA
-    
-    rNum = torch.randn(dimension).type(dtype)
-    # needs 4 dimensions to work with conv2d (BatchSize, Channels, Height, Width)
-    # we add the two extra dimensions at the beginning
-    while len(rNum.shape) is not 4:
-        rNum = rNum.unsqueeze(0)
-    return rNum
-    
 def main():
     out_feats = input_to_feats(config.wav_dir+'10161_chorus.wav')
     feats_to_audio(out_feats, 'test')
