@@ -30,8 +30,8 @@ features = 513
 split = 0.9
 
 # Hyperparameters
-num_epochs = 50
-batches_per_epoch_train = 125
+num_epochs = 100
+batches_per_epoch_train = 200
 batches_per_epoch_val = 100
 batch_size = 15 
 samples_per_file = 5

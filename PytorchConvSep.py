@@ -231,7 +231,7 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
             count+=1
 
-        train_evol.append([step_loss_vocals/count,step_loss_drums/count, step_loss_bass/count, step_loss_others/count, train_loss/count])
+        train_evol.append([step_loss_vocals/count,step_loss_drums/count, step_loss_bass/count, loss_func(out_others, targets_others)/count, train_loss/count])
         duration = time.time()-start_time
 
         if (epoch+1)%config.print_every == 0:

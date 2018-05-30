@@ -21,15 +21,15 @@ def data_gen(in_dir=config.dir_hdf5):
         inputs = []
         targets = []
 
-        start_time = time.time()
+        #start_time = time.time()
 
         for i in range(max_files_to_process):
             
             p = np.random.random_sample()
             
             # Randomize which batches are augmentated
-            if config.data_aug is True and p < 0:
-                print ('random')
+            if config.data_aug is True and p < 0.2:
+                #print ('random')
                 # each sample is a different file
                 for j in range(config.samples_per_file):
                     
@@ -100,7 +100,7 @@ def data_gen(in_dir=config.dir_hdf5):
                 
                
                 
-        print(time.time()-start_time)
+        #print(time.time()-start_time)
         yield np.array(inputs), np.array(targets)
     
     #import pdb;pdb.set_trace()
