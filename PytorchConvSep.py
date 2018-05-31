@@ -179,13 +179,23 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
             output = autoencoder(inputs)
 
-            mask_vocals = output[:,:2,:,:]
+            vocals = output[:,:2,:,:]
 
-            mask_drums = output[:,2:4,:,:]
+            drums = output[:,2:4,:,:]
 
-            mask_bass = output[:,4:6,:,:]
+            bass = output[:,4:6,:,:]
+            
+            others = np.ones((15, 2, 30, 513)) - vocals - drums - bass
+            
+            total_sources = vocals + bass + drums + others
 
-            mask_others = output[:,6:,:,:]
+            mask_vocals = vocals/total_sources
+
+            mask_drums = drums/total_sources
+
+            mask_bass = bass/total_sources
+
+            mask_others = others/total_sources
 
             out_vocals = inputs * mask_vocals
 

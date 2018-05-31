@@ -6,12 +6,12 @@ wav_dir_test = '../../datasets/musdb18/test/'
 
 
 
-data_dir = '/media/joan/Data/Users/Joan/Desktop/DATA/'
+data_dir = '/data/'
 log_dir = './log/'
 data_log = './log/data_log.log'
 data_aug = True
 
-dir_hdf5 = '/media/joan/Data/Users/Joan/Desktop/DATA/'
+dir_hdf5 = '../../data_h5py/'
 stat_dir = './stats/'
 h5py_file_train = './data_h5py/train.hdf5'
 h5py_file_val = './data_h5py/val.hdf5'

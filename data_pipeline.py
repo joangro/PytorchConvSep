@@ -28,7 +28,7 @@ def data_gen(in_dir=config.dir_hdf5):
             p = np.random.random_sample()
             
             # Randomize which batches are augmentated
-            if config.data_aug is True and p < 0.2:
+            if config.data_aug is True and p < -1:
                 #print ('random')
                 # each sample is a different file
                 for j in range(config.samples_per_file):
@@ -91,16 +91,45 @@ def data_gen(in_dir=config.dir_hdf5):
                 file_len = voc_stft.shape[1]
                 
                 for j in range(config.samples_per_file):
-                        index=np.random.randint(0,file_len-config.max_phr_len)
-                        targets.append(np.concatenate((voc_stft[:,index:index+config.max_phr_len,:],\
-                                                       drums_stft[:,index:index+config.max_phr_len,:],\
-                                                       bass_stft[:,index:index+config.max_phr_len,:],\
-                                                       acc_stft[:,index:index+config.max_phr_len,:]),axis=0))
-                        inputs.append(mix_stft[:,index:index+config.max_phr_len,:])
-                
-               
+                    index=np.random.randint(0,file_len-config.max_phr_len)
+                    stfts = [ voc_stft[:,index:index+config.max_phr_len,:],\
+                              drums_stft[:,index:index+config.max_phr_len,:],\
+                              bass_stft[:,index:index+config.max_phr_len,:],\
+                              acc_stft[:,index:index+config.max_phr_len,:],\
+                              mix_stft[:,index:index+config.max_phr_len,:]]   
+                    source_index = 0
+                    
+                    for source_stft in stfts:
+                        stft_max = np.amax(source_stft[:,:,:], axis = 1)
+                        
+                        if np.amax(stft_max) is not 0:
+                            stft_max[stft_max == 0] = 0.0001 # for the indexes where the maximum is still zero
+                            stft_norm = [source_stft[:,x,:] / stft_max for x in range(config.max_phr_len)]
+                            stft_norm = np.array(stft_norm).view().reshape((2, 30, 513))
+                        else:
+                            # in the case where all the stft is made of zeros
+                            stft_norm = source_stft
+                        
+                        #print(np.array(stft_norm).shape)
+                        #print (np.amax(np.array(stft_norm)))
+                        if source_index < 4:
+                            if source_index == 0:
+                                stft_stream = np.array(source_stft)
+                            else:
+                                stft_stream = np.concatenate((stft_stream, stft_norm), axis = 0)
+                        else:
+                            inputs.append(stft_norm)
+                        source_index += 1
+                    targets.append(stft_stream)
                 
         #print(time.time()-start_time)
+        # normalization
+        '''
+        max_inp = np.amax(inputs,axis = 0)
+        print (max_inp.shape)
+        '''
+        print (np.array(targets).shape)
+        #print (np.array(inputs).shape)
         yield np.array(inputs), np.array(targets)
     
     #import pdb;pdb.set_trace()
