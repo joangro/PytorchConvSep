@@ -90,6 +90,7 @@ def data_gen(in_dir=config.dir_hdf5):
 
                 file_len = voc_stft.shape[1]
                 
+                # Normalize data 
                 for j in range(config.samples_per_file):
                     index=np.random.randint(0,file_len-config.max_phr_len)
                     stfts = [ voc_stft[:,index:index+config.max_phr_len,:],\
