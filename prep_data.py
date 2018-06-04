@@ -21,14 +21,14 @@ def main():
     # minimus=np.ones(66)*1000
 
 
-    wav_files=[x for x in os.listdir(config.wav_dir_train) if x.endswith('.stem.mp4') and not x.startswith(".")]
+    wav_files=[x for x in os.listdir(config.wav_dir_test) if x.endswith('.stem.mp4') and not x.startswith(".")]
     count=0
 
 
     for lf in wav_files:
         
         # print(lf)
-        audio,fs = stempeg.read_stems(os.path.join(config.wav_dir_train,lf), stem_id=[0,1,2,3,4])
+        audio,fs = stempeg.read_stems(os.path.join(config.wav_dir_test,lf), stem_id=[0,1,2,3,4])
 
         mixture = audio[0]
 
@@ -50,31 +50,35 @@ def main():
 
         voc_stft = utils.stft_stereo(vocals)
 
-        hdf5_file = h5py.File(config.dir_hdf5+lf[:-9]+'.hdf5', mode='w')
+        hdf5_file = h5py.File(config.dir_hdf5_test+lf[:-9]+'.hdf5', mode='w')
 
         shape_train = [config.channels, voc_stft.shape[1], config.features]
 
         # import pdb;pdb.set_trace()
 
-        hdf5_file.create_dataset("voc_stft", shape_train, np.float32)
+        # hdf5_file.create_dataset("voc_stft", shape_train, np.float32)
 
         hdf5_file.create_dataset("mix_stft", shape_train, np.float32)
 
-        hdf5_file.create_dataset("drums_stft", shape_train, np.float32)
+        # hdf5_file.create_dataset("drums_stft", shape_train, np.float32)
 
-        hdf5_file.create_dataset("bass_stft", shape_train, np.float32)
+        # hdf5_file.create_dataset("bass_stft", shape_train, np.float32)
 
-        hdf5_file.create_dataset("acc_stft", shape_train, np.float32)
+        # hdf5_file.create_dataset("acc_stft", shape_train, np.float32)
 
-        hdf5_file["voc_stft"][:,:,:] = voc_stft
+        hdf5_file.create_dataset("tar_stft", [config.channels*4, voc_stft.shape[1], config.features], np.float32)
+
+        # hdf5_file["voc_stft"][:,:,:] = voc_stft
 
         hdf5_file["mix_stft"][:,:,:] = mix_stft
 
-        hdf5_file["drums_stft"][:,:,:] = drums_stft
+        # hdf5_file["drums_stft"][:,:,:] = drums_stft
 
-        hdf5_file["bass_stft"][:,:,:] = bass_stft
+        # hdf5_file["bass_stft"][:,:,:] = bass_stft
 
-        hdf5_file["acc_stft"][:,:,:] = acc_stft
+        # hdf5_file["acc_stft"][:,:,:] = acc_stft
+
+        hdf5_file["tar_stft"][:,:,:] = np.concatenate((voc_stft,drums_stft,bass_stft,acc_stft),axis = 0)
 
         hdf5_file.close()
 

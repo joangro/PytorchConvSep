@@ -11,6 +11,65 @@ import datetime
 import sys
 import time
 
+def loss_calc(inputs, targets, loss_func, autoencoder):
+    targets = targets *np.linspace(1.0,0.7,513)
+
+    targets_cuda = Variable(torch.FloatTensor(targets)).cuda()
+    inputs = Variable(torch.FloatTensor(inputs)).cuda()
+
+
+    output = autoencoder(inputs)
+
+    vocals = output[:,:2,:,:]
+
+    drums = output[:,2:4,:,:]
+
+    bass = output[:,4:6,:,:]
+
+    others = output[:,6:,:,:]
+
+    total_sources = vocals + bass + drums + others
+
+    mask_vocals = vocals/total_sources
+
+    mask_drums = drums/total_sources
+
+    mask_bass = bass/total_sources
+
+    mask_others = 1 - (mask_vocals+mask_drums+mask_bass)
+
+    out_vocals = inputs * mask_vocals
+
+    out_drums = inputs * mask_drums
+
+    out_bass = inputs * mask_bass
+
+    out_others = inputs * mask_others
+
+    targets_vocals = targets_cuda[:,:2,:,:]
+
+    targets_drums = targets_cuda[:,2:4,:,:]
+
+    targets_bass = targets_cuda[:,4:6,:,:]
+
+    targets_others = targets_cuda[:,6:,:,:]
+
+    step_loss_vocals = loss_func(out_vocals, targets_vocals)
+    alpha_diff =  config.alpha * loss_func(out_vocals, targets_bass)
+    alpha_diff += config.alpha * loss_func(out_vocals, targets_drums)
+    beta_other_voc   =  config.beta_voc * loss_func(out_vocals, targets_others)
+
+    step_loss_drums = loss_func(out_drums, targets_drums)
+    alpha_diff +=  config.alpha *  loss_func(out_drums, targets_vocals)
+    alpha_diff +=  config.alpha *  loss_func(out_drums, targets_bass)
+    beta_other  =  config.beta  *  loss_func(out_drums, targets_others)
+
+    step_loss_bass = loss_func(out_bass, targets_bass)
+    alpha_diff +=  config.alpha *  loss_func(out_bass, targets_vocals)
+    alpha_diff +=  config.alpha *  loss_func(out_bass, targets_drums)
+    beta_other  =  config.beta  *  loss_func(out_bass, targets_others)
+
+    return step_loss_vocals, step_loss_drums, step_loss_bass, alpha_diff, beta_other, beta_other_voc
 
 class AutoEncoder(nn.Module):
     def __init__(self, conv_hor_in = (1, 513), conv_ver_in = (12, 1)):
@@ -115,7 +174,7 @@ class AutoEncoder(nn.Module):
           
         encode = self.encoder(x)
 
-        encode = encode.view(15, -1)
+        encode = encode.view(config.batch_size, -1)
 
         layer_output = self.layer_first(encode)
         
@@ -152,11 +211,9 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
     train_evol = []
 
-    count = 0
+    val_evol = []
 
-    alpha = 0.001
-    beta  = 0.01
-    beta_voc = 0.03
+    count = 0
 
     for epoch in range(config.num_epochs):
 
@@ -164,74 +221,44 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
         generator = data_gen()
 
+        val_gen = data_gen(mode= "Val")
+
         train_loss = 0
+        train_loss_vocals = 0
+        train_loss_drums = 0
+        train_loss_bass = 0
+        train_alpha_diff = 0 
+        train_beta_other = 0
+        train_beta_other_voc = 0
+
+        val_loss = 0
+        val_loss_vocals = 0
+        val_loss_drums = 0
+        val_loss_bass = 0
+        val_alpha_diff = 0 
+        val_beta_other = 0
+        val_beta_other_voc = 0
+
+
 
         optimizer.zero_grad()
 
         count = 0
 
         for inputs, targets in generator:
-            targets = targets *np.linspace(1.0,0.7,513)
 
-            targets_cuda = Variable(torch.FloatTensor(targets)).cuda()
-            inputs = Variable(torch.FloatTensor(inputs)).cuda()
-
-
-            output = autoencoder(inputs)
-
-            vocals = output[:,:2,:,:]
-
-            drums = output[:,2:4,:,:]
-
-            bass = output[:,4:6,:,:]
-            
-            others = np.ones((15, 2, 30, 513)) - vocals - drums - bass
-            
-            total_sources = vocals + bass + drums + others
-
-            mask_vocals = vocals/total_sources
-
-            mask_drums = drums/total_sources
-
-            mask_bass = bass/total_sources
-
-            mask_others = others/total_sources
-
-            out_vocals = inputs * mask_vocals
-
-            out_drums = inputs * mask_drums
-
-            out_bass = inputs * mask_bass
-
-            out_others = inputs * mask_others
-
-            targets_vocals = targets_cuda[:,:2,:,:]
-
-            targets_drums = targets_cuda[:,2:4,:,:]
-
-            targets_bass = targets_cuda[:,4:6,:,:]
-
-            targets_others = targets_cuda[:,6:,:,:]
-
-            step_loss_vocals = loss_func(out_vocals, targets_vocals)
-            alpha_diff =  alpha * loss_func(out_vocals, targets_bass)
-            alpha_diff += alpha * loss_func(out_vocals, targets_drums)
-            beta_other_voc   =  beta_voc * loss_func(out_vocals, targets_others)
-
-            step_loss_drums = loss_func(out_drums, targets_drums)
-            alpha_diff +=  alpha *  loss_func(out_drums, targets_vocals)
-            alpha_diff +=  alpha *  loss_func(out_drums, targets_bass)
-            beta_other  =  beta  *  loss_func(out_drums, targets_others)
-
-            step_loss_bass = loss_func(out_bass, targets_bass)
-            alpha_diff +=  alpha *  loss_func(out_bass, targets_vocals)
-            alpha_diff +=  alpha *  loss_func(out_bass, targets_drums)
-            beta_other  =  beta  *  loss_func(out_bass, targets_others)
+            step_loss_vocals, step_loss_drums, step_loss_bass, alpha_diff, beta_other, beta_other_voc = loss_calc(inputs, targets, loss_func, autoencoder)
 
             # add regularization terms from paper
             step_loss = abs(step_loss_vocals + step_loss_drums + step_loss_bass - beta_other - alpha_diff - beta_other_voc)
 
             train_loss += step_loss.item()
+            train_loss_vocals +=step_loss_vocals.item()
+            train_loss_drums +=step_loss_drums.item()
+            train_loss_bass +=step_loss_bass.item()
+            train_alpha_diff += alpha_diff.item()
+            train_beta_other += beta_other.item()  
+            train_beta_other_voc+=beta_other_voc.item()          
 
             step_loss.backward()
 
@@ -241,14 +268,71 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
             count+=1
 
-        train_evol.append([step_loss_vocals/count,step_loss_drums/count, step_loss_bass/count, loss_func(out_others, targets_others)/count, train_loss/count])
+        train_loss = train_loss/(config.batches_per_epoch_train*count*config.max_phr_len*513)
+        train_loss_vocals = train_loss_vocals/(config.batches_per_epoch_train*count*config.max_phr_len*513)
+        train_loss_drums = train_loss_drums/(config.batches_per_epoch_train*count*config.max_phr_len*513)
+        train_loss_bass = train_loss_bass/(config.batches_per_epoch_train*count*config.max_phr_len*513)
+        train_alpha_diff = train_alpha_diff/(config.batches_per_epoch_train*count*config.max_phr_len*513)
+        train_beta_other = train_beta_other/(config.batches_per_epoch_train*count*config.max_phr_len*513)
+        train_beta_other_voc= train_beta_other_voc/(config.batches_per_epoch_train*count*config.max_phr_len*513)
+
+        train_evol.append([train_loss,train_loss_vocals,train_loss_drums,train_loss_bass,train_alpha_diff,train_beta_other,train_beta_other_voc])
+
+        count = 0
+
+        for inputs, targets in val_gen:
+
+            step_loss_vocals, step_loss_drums, step_loss_bass, alpha_diff, beta_other, beta_other_voc  = loss_calc(inputs, targets, loss_func, autoencoder)
+
+            # add regularization terms from paper
+            step_loss = abs(step_loss_vocals + step_loss_drums + step_loss_bass - beta_other - alpha_diff - beta_other_voc)
+
+            val_loss += step_loss.item()
+            val_loss_vocals +=step_loss_vocals.item()
+            val_loss_drums +=step_loss_drums.item()
+            val_loss_bass +=step_loss_bass.item()
+            val_alpha_diff += alpha_diff.item()
+            val_beta_other += beta_other.item()  
+            val_beta_other_voc+=beta_other_voc.item()           
+
+            utils.progress(count,config.batches_per_epoch_val, suffix = 'validation done')
+
+            count+=1
+        val_loss = val_loss/(config.batches_per_epoch_val*count*config.max_phr_len*513)
+        val_loss_vocals = val_loss_vocals/(config.batches_per_epoch_val*count*config.max_phr_len*513)
+        val_loss_drums = val_loss_drums/(config.batches_per_epoch_val*count*config.max_phr_len*513)
+        val_loss_bass = val_loss_bass/(config.batches_per_epoch_val*count*config.max_phr_len*513)
+        val_alpha_diff = val_alpha_diff/(config.batches_per_epoch_val*count*config.max_phr_len*513)
+        val_beta_other = val_beta_other/(config.batches_per_epoch_val*count*config.max_phr_len*513)
+        val_beta_other_voc= val_beta_other_voc/(config.batches_per_epoch_val*count*config.max_phr_len*513)
+        val_evol.append([val_loss,val_loss_vocals,val_loss_drums,val_loss_bass,val_alpha_diff,val_beta_other,val_beta_other_voc])
+
+        # import pdb;pdb.set_trace()
+
         duration = time.time()-start_time
 
         if (epoch+1)%config.print_every == 0:
-            print('epoch %d/%d, took %0.00f seconds, epoch total loss: %0.0f' % (epoch+1, config.num_epochs, duration, train_loss))
+            print('epoch %d/%d, took %0.00f seconds, epoch total loss: %0.000f' % (epoch+1, config.num_epochs, duration, train_loss))
+            print('                                  epoch vocal loss: %0.000f' % (train_loss_vocals))
+            print('                                  epoch drums loss: %0.000f' % (train_loss_drums))
+            print('                                  epoch bass  loss: %0.000f' % (train_loss_bass))
+            print('                                  epoch alpha diff: %0.000f' % (train_alpha_diff))
+            print('                                  epoch beta  diff: %0.000f' % (train_beta_other))
+            print('                                  epoch beta2 diff: %0.000f' % (train_beta_other_voc))
+
+            print('                                  validation total loss: %0.000f' % ( val_loss))
+            print('                                  validation vocal loss: %0.000f' % (val_loss_vocals))
+            print('                                  validation drums loss: %0.000f' % (val_loss_drums))
+            print('                                  validation bass  loss: %0.000f' % (val_loss_bass))
+            print('                                  validation alpha diff: %0.000f' % (val_alpha_diff))
+            print('                                  validation beta  diff: %0.000f' % (val_beta_other))
+            print('                                  validation beta2 diff: %0.000f' % (val_beta_other_voc))
         if (epoch+1)%config.save_every  == 0:
             torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch)+'.pt')
-            np.save(config.log_dir+'train_loss',train_evol)
+            np.save(config.log_dir+'train_loss',np.array(train_evol))
+            np.save(config.log_dir+'val_loss',np.array(val_evol))
+        # import pdb;pdb.set_trace()
+
 
     torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch)+'.pt')
 
@@ -259,7 +343,7 @@ def evalNetwork(file_name, load_name='model', plot = False):
     autoencoder_audio.load_state_dict(torch.load(config.log_dir+load_name+'_'+str(epoch)+'.pt'))
 
 
-    audio,fs = stempeg.read_stems(os.path.join(config.wav_dir_train,file_name), stem_id=[0,1,2,3,4])
+    audio,fs = stempeg.read_stems(os.path.join(config.wav_dir_test,file_name), stem_id=[0,1,2,3,4])
 
     mixture = audio[0]
 
@@ -328,6 +412,13 @@ def evalNetwork(file_name, load_name='model', plot = False):
         ax4.set_title("Drums Right Channel Network Output", fontsize = 10)
         plt.show()
 
+    if synth:
+        utils.inverse_stft_write(out_drums,mix_phase,config.out_dir+file_name+"_drums.wav")
+        utils.inverse_stft_write(out_bass,mix_phase,config.out_dir+file_name+"_bass.wav")
+        utils.inverse_stft_write(out_vocals,mix_phase,config.out_dir+file_name+"_vocals.wav")
+        utils.inverse_stft_write(out_others,mix_phase,config.out_dir+file_name+"_others.wav")
+
+
 def plot_loss():
     train_loss = np.load(config.log_dir+'train_loss.npy')
     plt.plot(train_loss)
@@ -347,9 +438,16 @@ if __name__ == '__main__':
 
             print("Synthesizing File %s"% file_name)
             if '-p' in sys.argv or '--p' in sys.argv or '-plot' in sys.argv or '--plot' in sys.argv:                
+                if '-ns' in sys.argv or '--ns' in sys.argv: 
+                    print("Just showing plots for File %s"% sys.argv[2])
+                    evalNetwork(file_name,plot=True, synth =False)
+                else:
+                    print("Showing Plots And Synthesizing File %s"% sys.argv[2])
+                    evalNetwork(file_name,plot=True, synth =True)
+            else:
+                evalNetwork(file_name,plot=False, synth =True)
 
-                print("Just showing plots for File %s"% sys.argv[2])
-                evalNetwork(file_name,plot=True)
+
     elif sys.argv[1] == '-plot' or sys.argv[1] == '--pl' or sys.argv[1] == '--plot_loss':
         plot_loss()
             # else:

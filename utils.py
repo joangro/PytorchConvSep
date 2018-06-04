@@ -8,6 +8,7 @@ from scipy.stats import norm
 import pyworld as pw
 import matplotlib.pyplot as plt
 
+import stempeg
 
 import config
 
@@ -84,6 +85,63 @@ def stft(data, window=np.hanning(1024),
     
     return STFT
 
+def istft(mag, phase, window=np.hanning(1024),
+         hopsize=256.0, nfft=1024.0, fs=44100.0,
+          analysisWindow=None):
+    """
+    data = istft_norm(X,window=sinebell(2048),hopsize=1024.0,nfft=2048.0,fs=44100)
+    Computes an inverse of the short time Fourier transform (STFT),
+    here, the overlap-add procedure is implemented.
+    Inputs:
+        X                     :
+            STFT of the signal, to be \"inverted\"
+        window=sinebell(2048) :
+            synthesis window
+            (should be the \"complementary\" window
+            for the analysis window)
+        hopsize=1024.0        :
+            hopsize for the analysis
+        nfft=2048.0           :
+            number of points for the Fourier computation
+            (the user has to provide an even number)
+    Outputs:
+        data                  :
+            time series corresponding to the given STFT
+            the first half-window is removed, complying
+            with the STFT computation given in the
+            function stft
+    """
+    X = mag * np.exp(1j*phase)
+    X = X.T
+    if analysisWindow is None:
+        analysisWindow = window
+
+    lengthWindow = np.array(window.size)
+    numberFrequencies, numberFrames = X.shape
+    lengthData = int(hopsize*(numberFrames-1) + lengthWindow)
+
+    normalisationSeq = np.zeros(lengthData)
+
+    data = np.zeros(lengthData)
+
+    for n in np.arange(numberFrames):
+        beginFrame = int(n * hopsize)
+        endFrame = beginFrame + lengthWindow
+        frameTMP = np.fft.irfft(X[:,n], np.int32(nfft), norm = 'ortho')
+        frameTMP = frameTMP[:lengthWindow]
+        normalisationSeq[beginFrame:endFrame] = (
+            normalisationSeq[beginFrame:endFrame] +
+            window * analysisWindow)
+        data[beginFrame:endFrame] = (
+            data[beginFrame:endFrame] + window * frameTMP)
+
+    data = data[int(lengthWindow/2.0):]
+    normalisationSeq = normalisationSeq[int(lengthWindow/2.0):]
+    normalisationSeq[normalisationSeq==0] = 1.
+
+    data = data / normalisationSeq
+
+    return data
 
 def stft_stereo(data, phase=False):
     assert data.shape[1] == 2
@@ -213,6 +271,14 @@ def normalize(inputs, feat, mode=config.norm_mode_in):
 
     return outputs
 
+def inverse_stft_write(mix_stft,mix_phase,file_name):
+    audio_out_l = istft(mix_stft[0],mix_phase[0])
+
+    audio_out_r = istft(mix_stft[1],mix_phase[1])
+
+    audio_out = np.array([audio_out_l,audio_out_r]).T  
+
+    sf.write(file_name,audio_out,config.fs)
 
 def denormalize(inputs, feat, mode=config.norm_mode_in):
     if mode == "max_min":
@@ -228,8 +294,24 @@ def denormalize(inputs, feat, mode=config.norm_mode_in):
     return outputs
 
 def main():
-    out_feats = input_to_feats(config.wav_dir+'10161_chorus.wav')
-    feats_to_audio(out_feats, 'test')
+    lf = "Al James - Schoolboy Facination.stem.mp4"
+    audio,fs = stempeg.read_stems(os.path.join(config.wav_dir_test,lf), stem_id=[0,1,2,3,4])
+
+    mixture = audio[0]
+
+    mix_stft, mix_phase = stft_stereo(mixture,phase=True)
+
+    inverse_stft_write(mix_stft,mix_phase,'./test.wav')
+
+    # audio_out_l = istft(mix_stft[0],mix_phase[0])
+
+    # audio_out_r = istft(mix_stft[1],mix_phase[1])
+
+    # audio_out = np.array([audio_out_l,audio_out_r]).T
+
+
+
+    # sf.write('./test.wav',audio_out,fs)
     # test(harmy, 10*np.log10(harm))
 
     # test_sample = np.random.rand(5170,66)
