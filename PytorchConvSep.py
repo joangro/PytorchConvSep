@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import division
 import numpy as np
 import torch
 from torch.autograd import Variable
@@ -8,17 +10,24 @@ import matplotlib.pyplot as plt
 import config
 import utils
 import datetime
-import sys
+import sys, os
 import time
+import h5py
+import stempeg
 
 def loss_calc(inputs, targets, loss_func, autoencoder):
+
+    eps=1e-18
+
     targets = targets *np.linspace(1.0,0.7,513)
 
     targets_cuda = Variable(torch.FloatTensor(targets)).cuda()
     inputs = Variable(torch.FloatTensor(inputs)).cuda()
 
 
-    output = autoencoder(inputs)
+    output = autoencoder(inputs) + eps
+
+    # import pdb;pdb.set_trace()
 
     vocals = output[:,:2,:,:]
 
@@ -36,7 +45,7 @@ def loss_calc(inputs, targets, loss_func, autoencoder):
 
     mask_bass = bass/total_sources
 
-    mask_others = 1 - (mask_vocals+mask_drums+mask_bass)
+    mask_others = others/total_sources
 
     out_vocals = inputs * mask_vocals
 
@@ -106,27 +115,27 @@ class AutoEncoder(nn.Module):
         ### DECODERS
         self.decode_drums = nn.Sequential(
             nn.ConvTranspose2d(2, 2, self.conv_ver, stride = 1, padding = 0, bias = True),
-            nn.ReLU(),
+            # nn.ReLU(),
             nn.ConvTranspose2d(2, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
-            nn.ReLU()
+            # nn.ReLU()
         )
         self.decode_voice = nn.Sequential(
             nn.ConvTranspose2d(2, 2, self.conv_ver, stride = 1, padding = 0, bias = True),
-            nn.ReLU(),
+            # nn.ReLU(),
             nn.ConvTranspose2d(2, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
-            nn.ReLU()
+            # nn.ReLU()
         )
         self.decode_bass = nn.Sequential(
             nn.ConvTranspose2d(2, 2, self.conv_ver, stride = 1, padding = 0, bias = True),
-            nn.ReLU(),
+            # nn.ReLU(),
             nn.ConvTranspose2d(2, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
-            nn.ReLU()
+            # nn.ReLU()
         )
         self.decode_other = nn.Sequential(
             nn.ConvTranspose2d(2, 2, self.conv_ver, stride = 1, padding = 0, bias = True),
-            nn.ReLU(),
+            # nn.ReLU(),
             nn.ConvTranspose2d(2, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
-            nn.ReLU()
+            # nn.ReLU()
         )
         
         ### FULLY CONNECTED LAYERS
@@ -134,19 +143,19 @@ class AutoEncoder(nn.Module):
 
         self.layer_drums = nn.Sequential(
             nn.Linear(128, 38),
-            nn.ReLU()
+            # nn.ReLU()
         )
         self.layer_voice = nn.Sequential(
             nn.Linear(128, 38),
-            nn.ReLU()
+            # nn.ReLU()
         )
         self.layer_bass = nn.Sequential(
             nn.Linear(128, 38),
-            nn.ReLU()
+            # nn.ReLU()
         )
         self.layer_other = nn.Sequential(
             nn.Linear(128, 38),
-            nn.ReLU()
+            # nn.ReLU()
         )
         
         # put the layers and deconv in libraries to make it easier to work with
@@ -204,7 +213,7 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
     autoencoder =  AutoEncoder().cuda()
 
-    optimizer   =  torch.optim.Adagrad(autoencoder.parameters(), 0.0001 )
+    optimizer   =  torch.optim.Adagrad(autoencoder.parameters())
 
     #loss_func   =  nn.MSELoss( size_average=False )
     loss_func   =  nn.L1Loss( size_average=False )
@@ -248,11 +257,19 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
         for inputs, targets in generator:
 
             step_loss_vocals, step_loss_drums, step_loss_bass, alpha_diff, beta_other, beta_other_voc = loss_calc(inputs, targets, loss_func, autoencoder)
+            # start_time = time.time()
 
             # add regularization terms from paper
             step_loss = abs(step_loss_vocals + step_loss_drums + step_loss_bass - beta_other - alpha_diff - beta_other_voc)
 
+            # print time.time()-start_time
+            # import pdb;pdb.set_trace()
+            # start_time = time.time()
+
             train_loss += step_loss.item()
+            if np.isnan(train_loss):
+               # import pdb;pdb.set_trace()
+               print ("error output contains NaN")
             train_loss_vocals +=step_loss_vocals.item()
             train_loss_drums +=step_loss_drums.item()
             train_loss_bass +=step_loss_bass.item()
@@ -263,6 +280,7 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
             step_loss.backward()
 
             optimizer.step()
+            # print time.time()-start_time
 
             utils.progress(count,config.batches_per_epoch_train, suffix = 'training done')
 
@@ -312,21 +330,23 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
         duration = time.time()-start_time
 
         if (epoch+1)%config.print_every == 0:
-            print('epoch %d/%d, took %0.00f seconds, epoch total loss: %0.000f' % (epoch+1, config.num_epochs, duration, train_loss))
-            print('                                  epoch vocal loss: %0.000f' % (train_loss_vocals))
-            print('                                  epoch drums loss: %0.000f' % (train_loss_drums))
-            print('                                  epoch bass  loss: %0.000f' % (train_loss_bass))
-            print('                                  epoch alpha diff: %0.000f' % (train_alpha_diff))
-            print('                                  epoch beta  diff: %0.000f' % (train_beta_other))
-            print('                                  epoch beta2 diff: %0.000f' % (train_beta_other_voc))
+            print('epoch %d/%d, took %.2f seconds, epoch total loss: %.5f' % (epoch+1, config.num_epochs, duration, train_loss))
+            print('                                  epoch vocal loss: %.5f' % (train_loss_vocals))
+            print('                                  epoch drums loss: %.5f' % (train_loss_drums))
+            print('                                  epoch bass  loss: %.5f' % (train_loss_bass))
+            print('                                  epoch alpha diff: %.5f' % (train_alpha_diff))
+            print('                                  epoch beta  diff: %.5f' % (train_beta_other))
+            print('                                  epoch beta2 diff: %.5f' % (train_beta_other_voc))
 
-            print('                                  validation total loss: %0.000f' % ( val_loss))
-            print('                                  validation vocal loss: %0.000f' % (val_loss_vocals))
-            print('                                  validation drums loss: %0.000f' % (val_loss_drums))
-            print('                                  validation bass  loss: %0.000f' % (val_loss_bass))
-            print('                                  validation alpha diff: %0.000f' % (val_alpha_diff))
-            print('                                  validation beta  diff: %0.000f' % (val_beta_other))
-            print('                                  validation beta2 diff: %0.000f' % (val_beta_other_voc))
+            print('                                  validation total loss: %.5f' % ( val_loss))
+            print('                                  validation vocal loss: %.5f' % (val_loss_vocals))
+            print('                                  validation drums loss: %.5f' % (val_loss_drums))
+            print('                                  validation bass  loss: %.5f' % (val_loss_bass))
+            print('                                  validation alpha diff: %.5f' % (val_alpha_diff))
+            print('                                  validation beta  diff: %.5f' % (val_beta_other))
+            print('                                  validation beta2 diff: %.5f' % (val_beta_other_voc))
+
+        # import pdb;pdb.set_trace()
         if (epoch+1)%config.save_every  == 0:
             torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch)+'.pt')
             np.save(config.log_dir+'train_loss',np.array(train_evol))
@@ -337,10 +357,22 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
     torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch)+'.pt')
 
 
-def evalNetwork(file_name, load_name='model', plot = False):
+def evalNetwork(file_name, load_name='model_e4000_b500_bs1_1699', plot = False, synth = False):
     autoencoder_audio = AutoEncoder().cuda()
     epoch = 50
-    autoencoder_audio.load_state_dict(torch.load(config.log_dir+load_name+'_'+str(epoch)+'.pt'))
+    # autoencoder_audio.load_state_dict(torch.load(config.log_dir+load_name+'_'+str(epoch)+'.pt'))
+    autoencoder_audio.load_state_dict(torch.load(config.log_dir+'model1/'+load_name+'.pt'))
+
+    stat_file = h5py.File(config.stat_dir+'stats.hdf5', mode='r')
+    # import pdb;pdb.set_trace()
+    max_feat = np.array(stat_file["feats_maximus"])
+    min_feat = np.array(stat_file["feats_minimus"])
+
+    max_feat_tars = max_feat[:8,:].reshape(8,1,513)
+    min_feat_tars = min_feat[:8,:].reshape(8,1,513)
+
+    max_feat_ins = max_feat[-2:,:].reshape(2,1,513)
+    min_feat_ins = min_feat[-2:,:].reshape(2,1,513)
 
 
     audio,fs = stempeg.read_stems(os.path.join(config.wav_dir_test,file_name), stem_id=[0,1,2,3,4])
@@ -356,6 +388,8 @@ def evalNetwork(file_name, load_name='model', plot = False):
     vocals = audio[4]
 
     mix_stft, mix_phase = utils.stft_stereo(mixture,phase=True)
+
+    mix_stft = (mix_stft-min_feat_ins)/(max_feat_ins-min_feat_ins)
 
     drums_stft = utils.stft_stereo(drums)
 
@@ -379,13 +413,43 @@ def evalNetwork(file_name, load_name='model', plot = False):
     out_batches = np.array(out_batches)
     
 
-    out_vocals = out_batches[:,:,:2,:,:]
 
-    out_drums = out_batches[:,:,2:4,:,:]
+    vocals = out_batches[:,:,:2,:,:]
 
-    out_bass = out_batches[:,:,4:6,:,:]
+    drums = out_batches[:,:,2:4,:,:]
 
-    out_others = out_batches[:,:,6:,:,:]
+    bass = out_batches[:,:,4:6,:,:]
+
+    others = out_batches[:,:,6:,:,:]
+
+    total_sources = vocals + bass + drums + others
+
+    mask_vocals = vocals/total_sources
+
+    mask_drums = drums/total_sources
+
+    mask_bass = bass/total_sources
+
+    mask_others = 1 - (mask_vocals+mask_drums+mask_bass)
+
+    out_vocals = in_batches * mask_vocals
+
+    out_drums = in_batches * mask_drums
+
+    out_bass = in_batches * mask_bass
+
+    out_others = in_batches * mask_others
+    
+
+    out_vocals = out_vocals*(max_feat_tars[:2,:,:]-min_feat_tars[:2,:,:])+min_feat_tars[:2,:,:]
+
+    out_drums = out_drums*(max_feat_tars[2:4,:,:]-min_feat_tars[2:4,:,:])+min_feat_tars[2:4,:,:]
+
+    out_bass = out_bass*(max_feat_tars[4:6,:,:]-min_feat_tars[4:6,:,:])+min_feat_tars[4:6,:,:]
+
+    out_others = out_others*(max_feat_tars[6:,:,:]-min_feat_tars[6:,:,:])+min_feat_tars[6:,:,:]
+
+
     
     out_drums = utils.overlapadd(out_drums, nchunks_in) 
 
@@ -401,26 +465,77 @@ def evalNetwork(file_name, load_name='model', plot = False):
         ax1 = plt.subplot(411)
         plt.imshow(np.log(drums_stft[0].T),aspect = 'auto', origin = 'lower')
         ax1.set_title("Drums Left Channel Ground Truth", fontsize = 10)
-        ax2 = plt.subplot(412)
+        ax2 = plt.subplot(412, sharex = ax1, sharey = ax1)
         plt.imshow(np.log(out_drums[0].T),aspect = 'auto', origin = 'lower')
         ax2.set_title("Drums Left Channel Network Output", fontsize = 10)
-        ax3 = plt.subplot(413)
+        ax3 = plt.subplot(413, sharex = ax1, sharey = ax1)
         plt.imshow(np.log(drums_stft[1].T),aspect = 'auto', origin = 'lower')
         ax3.set_title("Drums Right Channel Ground Truth", fontsize = 10)
-        ax4 = plt.subplot(414)
+        ax4 = plt.subplot(414, sharex = ax1, sharey = ax1)
         plt.imshow(np.log(out_drums[1].T),aspect = 'auto', origin = 'lower')
         ax4.set_title("Drums Right Channel Network Output", fontsize = 10)
+
+        plt.figure(2)
+        plt.suptitle(file_name[:-9])
+        ax1 = plt.subplot(411)
+        plt.imshow(np.log(voc_stft[0].T),aspect = 'auto', origin = 'lower')
+        ax1.set_title("Vocals Left Channel Ground Truth", fontsize = 10)
+        ax2 = plt.subplot(412, sharex = ax1, sharey = ax1)
+        plt.imshow(np.log(out_vocals[0].T),aspect = 'auto', origin = 'lower')
+        ax2.set_title("Vocals Left Channel Network Output", fontsize = 10)
+        ax3 = plt.subplot(413, sharex = ax1, sharey = ax1)
+        plt.imshow(np.log(voc_stft[1].T),aspect = 'auto', origin = 'lower')
+        ax3.set_title("Vocals Right Channel Ground Truth", fontsize = 10)
+        ax4 = plt.subplot(414, sharex = ax1, sharey = ax1)
+        plt.imshow(np.log(out_vocals[1].T),aspect = 'auto', origin = 'lower')
+        ax4.set_title("Vocals Right Channel Network Output", fontsize = 10)
+
+
+        plt.figure(3)
+        plt.suptitle(file_name[:-9])
+        ax1 = plt.subplot(411)
+        plt.imshow(np.log(bass_stft[0].T),aspect = 'auto', origin = 'lower')
+        ax1.set_title("Bass Left Channel Ground Truth", fontsize = 10)
+        ax2 = plt.subplot(412, sharex = ax1, sharey = ax1)
+        plt.imshow(np.log(out_bass[0].T),aspect = 'auto', origin = 'lower')
+        ax2.set_title("Bass Left Channel Network Output", fontsize = 10)
+        ax3 = plt.subplot(413, sharex = ax1, sharey = ax1)
+        plt.imshow(np.log(bass_stft[1].T),aspect = 'auto', origin = 'lower')
+        ax3.set_title("Bass Right Channel Ground Truth", fontsize = 10)
+        ax4 = plt.subplot(414, sharex = ax1, sharey = ax1)
+        plt.imshow(np.log(out_bass[1].T),aspect = 'auto', origin = 'lower')
+        ax4.set_title("Bass Right Channel Network Output", fontsize = 10)
+
+        plt.figure(4)
+        plt.suptitle(file_name[:-9])
+        ax1 = plt.subplot(411)
+        plt.imshow(np.log(acc_stft[0].T),aspect = 'auto', origin = 'lower')
+        ax1.set_title("Others Left Channel Ground Truth", fontsize = 10)
+        ax2 = plt.subplot(412, sharex = ax1, sharey = ax1)
+        plt.imshow(np.log(out_others[0].T),aspect = 'auto', origin = 'lower')
+        ax2.set_title("Others Left Channel Network Output", fontsize = 10)
+        ax3 = plt.subplot(413, sharex = ax1, sharey = ax1)
+        plt.imshow(np.log(acc_stft[1].T),aspect = 'auto', origin = 'lower')
+        ax3.set_title("Others Right Channel Ground Truth", fontsize = 10)
+        ax4 = plt.subplot(414, sharex = ax1, sharey = ax1)
+        plt.imshow(np.log(out_others[1].T),aspect = 'auto', origin = 'lower')
+        ax4.set_title("Others Right Channel Network Output", fontsize = 10)
+
+
         plt.show()
 
     if synth:
-        utils.inverse_stft_write(out_drums,mix_phase,config.out_dir+file_name+"_drums.wav")
-        utils.inverse_stft_write(out_bass,mix_phase,config.out_dir+file_name+"_bass.wav")
-        utils.inverse_stft_write(out_vocals,mix_phase,config.out_dir+file_name+"_vocals.wav")
-        utils.inverse_stft_write(out_others,mix_phase,config.out_dir+file_name+"_others.wav")
+        # import pdb;pdb.set_trace()
+        utils.inverse_stft_write(out_drums[:,:mix_phase.shape[1],:],mix_phase,config.out_dir+file_name+"_drums.wav")
+        utils.inverse_stft_write(out_bass[:,:mix_phase.shape[1],:],mix_phase,config.out_dir+file_name+"_bass.wav")
+        utils.inverse_stft_write(out_vocals[:,:mix_phase.shape[1],:],mix_phase,config.out_dir+file_name+"_vocals.wav")
+        utils.inverse_stft_write(out_others[:,:mix_phase.shape[1],:],mix_phase,config.out_dir+file_name+"_others.wav")
 
 
 def plot_loss():
     train_loss = np.load(config.log_dir+'train_loss.npy')
+    val_loss = np.load(config.log_dir+'val_loss.npy')
+
     plt.plot(train_loss)
     plt.show()
         

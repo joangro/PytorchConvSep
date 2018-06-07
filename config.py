@@ -34,11 +34,11 @@ features = 513
 split = 0.9
 
 # Hyperparameters
-num_epochs = 1000
-batches_per_epoch_train = 500
-batches_per_epoch_val = 200
-batch_size = 15
-samples_per_file = 5
+num_epochs = 4000
+batches_per_epoch_train = 300
+batches_per_epoch_val = 150
+batch_size = 1
+samples_per_file = 1
 max_phr_len = 30
 input_features = 513
 lstm_size = 128

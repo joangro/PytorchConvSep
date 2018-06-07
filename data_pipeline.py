@@ -6,10 +6,22 @@ import h5py
 import config
 
 def data_gen(mode = 'Train'):
+    stat_file = h5py.File(config.stat_dir+'stats.hdf5', mode='r')
+    #import pdb;pdb.set_trace()
+    max_feat = np.array(stat_file["feats_maximus"])
+    min_feat = np.array(stat_file["feats_minimus"])
+
+    max_feat_tars = max_feat[:8,:].reshape(1,8,1,513)
+    min_feat_tars = min_feat[:8,:].reshape(1,8,1,513)
+
+    max_feat_ins = max_feat[-2:,:].reshape(1,2,1,513)
+    min_feat_ins = min_feat[-2:,:].reshape(1,2,1,513)
     if mode == "Train":
         in_dir=config.dir_hdf5
+        num_batches = config.batches_per_epoch_train
     elif mode =="Val":
         in_dir = config.dir_hdf5_test
+        num_batches = config.batches_per_epoch_val
 
     sources = ['voc_stft', 'drums_stft', 'bass_stft', 'acc_stft']
     
@@ -20,7 +32,7 @@ def data_gen(mode = 'Train'):
 
     num_files = len(file_list)
 
-    for k in range(config.batches_per_epoch_train):
+    for k in range(num_batches):
 
         inputs = []
         targets = []
@@ -28,6 +40,34 @@ def data_gen(mode = 'Train'):
         #start_time = time.time()
 
         for i in range(max_files_to_process):
+
+            file_index = np.random.randint(0,num_files)
+            
+            file_to_open = file_list[file_index]
+
+            hdf5_file = h5py.File(in_dir+file_to_open, "r")
+
+            tar_stft = hdf5_file["tar_stft"]
+
+            mix_stft = hdf5_file['mix_stft']
+
+
+
+            file_len = mix_stft.shape[1]
+            # start_time = time.time()
+            for j in range(config.samples_per_file):
+                index=np.random.randint(0,file_len-config.max_phr_len)
+                # targets.append(np.concatenate((voc_stft[:,index:index+config.max_phr_len,:],drums_stft[:,index:index+config.max_phr_len,:],bass_stft[:,index:index+config.max_phr_len,:],acc_stft[:,index:index+config.max_phr_len,:]),axis=0))
+
+                targets.append(tar_stft[:,index:index+config.max_phr_len,:])
+                inputs.append(mix_stft[:,index:index+config.max_phr_len,:])
+            hdf5_file.close()
+
+            # print("One file took %0.00f" % (time.time()-start_time))
+        #import pdb;pdb.set_trace()
+        targets = (np.array(targets)-min_feat_tars)/(max_feat_tars-min_feat_tars)
+        inputs = (np.array(inputs)-min_feat_ins)/(max_feat_ins-min_feat_ins)
+        yield inputs, targets
             
             # p = np.random.random_sample()
             
@@ -77,30 +117,7 @@ def data_gen(mode = 'Train'):
             #         inputs.append(mix_stft)
 
             # else:
-            file_index = np.random.randint(0,num_files)
-            file_to_open = file_list[file_index]
 
-            hdf5_file = h5py.File(in_dir+file_to_open, "r")
-
-            tar_stft = hdf5_file["tar_stft"]
-
-            mix_stft = hdf5_file['mix_stft']
-
-
-
-            file_len = mix_stft.shape[1]
-            # start_time = time.time()
-            for j in range(config.samples_per_file):
-                index=np.random.randint(0,file_len-config.max_phr_len)
-                # targets.append(np.concatenate((voc_stft[:,index:index+config.max_phr_len,:],drums_stft[:,index:index+config.max_phr_len,:],bass_stft[:,index:index+config.max_phr_len,:],acc_stft[:,index:index+config.max_phr_len,:]),axis=0))
-
-                targets.append(tar_stft[:,index:index+config.max_phr_len,:])
-                inputs.append(mix_stft[:,index:index+config.max_phr_len,:])
-
-            # print("One file took %0.00f" % (time.time()-start_time))
-        targets = np.array(targets)
-        inputs = np.array(inputs)
-        yield inputs, targets
                 
                 # Normalize data 
         #         for j in range(config.samples_per_file):
@@ -149,7 +166,56 @@ def data_gen(mode = 'Train'):
     
     #import pdb;pdb.set_trace()
 
+def get_stats():
+    in_dir=config.dir_hdf5
+    num_batches = config.batches_per_epoch_train
 
+    maximus = np.zeros((10,1,513))
+
+    minimus = np.ones((10,1,513))*100
+
+    count =0
+
+    file_list = [x for x in os.listdir(in_dir) if x.endswith('.hdf5') and not x.startswith('._')]
+
+    for file_to_open in file_list:
+        hdf5_file = h5py.File(in_dir+file_to_open, "r")
+
+        tar_stft = np.array(hdf5_file["tar_stft"])
+
+        tar_stft_max = tar_stft.max(axis = 1).reshape(8,1,513)
+
+        tar_stft_min = tar_stft.min(axis = 1).reshape(8,1,513)
+
+        mix_stft = np.array(hdf5_file["mix_stft"])
+        mix_stft_max = mix_stft.max(axis = 1).reshape(2,1,513)
+        mix_stft_min = mix_stft.min(axis = 1).reshape(2,1,513)
+
+        if np.isnan(tar_stft).any():
+            print "tar nan"
+            print file_to_open
+        if np.isnan(mix_stft).any():
+            print "mix nan"
+            print file_to_open
+
+        loc_max = np.concatenate((tar_stft_max,mix_stft_max),axis=0)
+
+        loc_min = np.concatenate((tar_stft_min,mix_stft_min),axis=0)
+
+        maximus = np.concatenate((maximus,loc_max),axis=1).max(axis=1).reshape(10,1,513)
+
+        minimus = np.concatenate((minimus,loc_min),axis=1).min(axis=1).reshape(10,1,513)
+        utils.progress(count,100)
+        count+=1
+
+    #import pdb;pdb.set_trace()
+
+    hdf5_file = h5py.File(config.stat_dir+'stats.hdf5', mode='w')
+
+    hdf5_file.create_dataset("feats_maximus", [10,513], np.float32) 
+    hdf5_file.create_dataset("feats_minimus", [10,513], np.float32)   
+    hdf5_file["feats_maximus"][:] = maximus.reshape(10,513)
+    hdf5_file["feats_minimus"][:] = minimus.reshape(10,513)
     
 def main():
     # get_stats(feat='feats')
