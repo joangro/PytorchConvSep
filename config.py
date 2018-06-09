@@ -7,6 +7,7 @@ wav_dir_test = '../../../../datasets/musdb18/test/'
 
 out_dir = './outputs/'
 
+err_dir = './error/'
 data_dir = '/data/'
 log_dir = './log/'
 data_log = './log/data_log.log'
@@ -37,7 +38,7 @@ split = 0.9
 num_epochs = 4000
 batches_per_epoch_train = 300
 batches_per_epoch_val = 150
-batch_size = 1
+batch_size = 5
 samples_per_file = 1
 max_phr_len = 30
 input_features = 513

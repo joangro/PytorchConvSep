@@ -213,7 +213,7 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
     autoencoder =  AutoEncoder().cuda()
 
-    optimizer   =  torch.optim.Adagrad(autoencoder.parameters())
+    optimizer   =  torch.optim.Adam(autoencoder.parameters(), lr = 0.000001)
 
     #loss_func   =  nn.MSELoss( size_average=False )
     loss_func   =  nn.L1Loss( size_average=False )
@@ -330,21 +330,21 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
         duration = time.time()-start_time
 
         if (epoch+1)%config.print_every == 0:
-            print('epoch %d/%d, took %.2f seconds, epoch total loss: %.5f' % (epoch+1, config.num_epochs, duration, train_loss))
-            print('                                  epoch vocal loss: %.5f' % (train_loss_vocals))
-            print('                                  epoch drums loss: %.5f' % (train_loss_drums))
-            print('                                  epoch bass  loss: %.5f' % (train_loss_bass))
-            print('                                  epoch alpha diff: %.5f' % (train_alpha_diff))
-            print('                                  epoch beta  diff: %.5f' % (train_beta_other))
-            print('                                  epoch beta2 diff: %.5f' % (train_beta_other_voc))
+            print('epoch %d/%d, took %.2f seconds, epoch total loss: %.7f' % (epoch+1, config.num_epochs, duration, train_loss))
+            print('                                  epoch vocal loss: %.7f' % (train_loss_vocals))
+            print('                                  epoch drums loss: %.7f' % (train_loss_drums))
+            print('                                  epoch bass  loss: %.7f' % (train_loss_bass))
+            print('                                  epoch alpha diff: %.7f' % (train_alpha_diff))
+            print('                                  epoch beta  diff: %.7f' % (train_beta_other))
+            print('                                  epoch beta2 diff: %.7f' % (train_beta_other_voc))
 
-            print('                                  validation total loss: %.5f' % ( val_loss))
-            print('                                  validation vocal loss: %.5f' % (val_loss_vocals))
-            print('                                  validation drums loss: %.5f' % (val_loss_drums))
-            print('                                  validation bass  loss: %.5f' % (val_loss_bass))
-            print('                                  validation alpha diff: %.5f' % (val_alpha_diff))
-            print('                                  validation beta  diff: %.5f' % (val_beta_other))
-            print('                                  validation beta2 diff: %.5f' % (val_beta_other_voc))
+            print('                                  validation total loss: %.7f' % ( val_loss))
+            print('                                  validation vocal loss: %.7f' % (val_loss_vocals))
+            print('                                  validation drums loss: %.7f' % (val_loss_drums))
+            print('                                  validation bass  loss: %.7f' % (val_loss_bass))
+            print('                                  validation alpha diff: %.7f' % (val_alpha_diff))
+            print('                                  validation beta  diff: %.7f' % (val_beta_other))
+            print('                                  validation beta2 diff: %.7f' % (val_beta_other_voc))
 
         # import pdb;pdb.set_trace()
         if (epoch+1)%config.save_every  == 0:

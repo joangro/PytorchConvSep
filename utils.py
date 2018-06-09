@@ -280,6 +280,16 @@ def inverse_stft_write(mix_stft,mix_phase,file_name):
 
     sf.write(file_name,audio_out,config.fs)
 
+def inverse_stft(mix_stft,mix_phase):
+    audio_out_l = istft(mix_stft[0],mix_phase[0])
+
+    audio_out_r = istft(mix_stft[1],mix_phase[1])
+
+    audio_out = np.array([audio_out_l,audio_out_r]).T
+
+    return audio_out
+
+
 def denormalize(inputs, feat, mode=config.norm_mode_in):
     if mode == "max_min":
         maximus = np.load(config.stat_dir+feat+'_maximus.npy')

@@ -15,8 +15,6 @@ import mir_eval
 import random
 from PytorchConvSep import AutoEncoder
 
-def createWav():
-    pass
 
 def evalNets(pcs_model = 'model_e4000_b100_bs5_139', file_to_eval = "None", path = '/media/joan/Data/Users/Joan/Desktop/DATA/STEMS'):
 
@@ -64,7 +62,6 @@ def evalNets(pcs_model = 'model_e4000_b100_bs5_139', file_to_eval = "None", path
         mix_stft = (mix_stft-min_feat_ins)/(max_feat_ins-min_feat_ins)
 
         drums_stft = utils.stft_stereo(drums)
-
 
         bass_stft = utils.stft_stereo(bass)
 
@@ -159,7 +156,7 @@ def evalNets(pcs_model = 'model_e4000_b100_bs5_139', file_to_eval = "None", path
         
         #import pdb;pdb.set_trace()
 
-        [SDR, SAR, SIR, _] = mir_eval.separation.bss_eval_sources(targets[:,index:index+file_length], estimated[:,index:index+file_length])
+        [SDR, SAR, SIR, _] = mir_eval.separation.bss_eval_sources(targets[:,index:index+file_length] + 1e-7, estimated[:,index:index+file_length])
 
         SDR_error.append(SDR)
         SAR_error.append(SAR)
@@ -177,8 +174,6 @@ if __name__ == "__main__":
         print ('Please input a sequence such as:')
         print("%s -m   <PytorchConvSep model>"%sys.argv[0])
         print("%s -m   <PytorchConvSep model>   -f   <file_to_evaluate_path>"%sys.argv[0])
-
-
     else:
         if (len(sys.argv) < 3):
             print ('Please input a model')
