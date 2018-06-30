@@ -17,12 +17,12 @@ import stempeg
 
 def loss_calc(inputs, targets, loss_func, autoencoder):
 
-    eps=1e-18
+    eps=1e-9
+    #import pdb;pdb.set_trace()
+    targets = targets *np.linspace(1.0,0.5,513)
 
-    targets = targets *np.linspace(1.0,0.7,513)
-
-    targets_cuda = Variable(torch.FloatTensor(targets)).cuda()
-    inputs = Variable(torch.FloatTensor(inputs)).cuda()
+    targets_cuda = Variable(torch.FloatTensor(targets)).cuda() + eps
+    inputs = Variable(torch.FloatTensor(inputs)).cuda() + eps
 
 
     output = autoencoder(inputs) + eps
@@ -81,7 +81,7 @@ def loss_calc(inputs, targets, loss_func, autoencoder):
     return step_loss_vocals, step_loss_drums, step_loss_bass, alpha_diff, beta_other, beta_other_voc
 
 class AutoEncoder(nn.Module):
-    def __init__(self, conv_hor_in = (1, 513), conv_ver_in = (12, 1)):
+    def __init__(self, conv_hor_in = (1, 513), conv_ver_in = (15, 1)):
         '''
         I tried to make this as customizable as possible.
         INPUT:
@@ -108,100 +108,88 @@ class AutoEncoder(nn.Module):
         # we need to use sequential, as it's a way to add modules one after the 
         # another in an ordered way
         self.encoder = nn.Sequential(
-            nn.Conv2d(2, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
-            nn.Conv2d(2, 2, self.conv_ver, stride = 1, padding = 0, bias = True)
+            nn.Conv2d(2, config.num_ch_out_hor, self.conv_hor, stride = 1, padding = 0, bias = True, groups = 1),
+            nn.Conv2d(config.num_ch_out_hor, config.num_ch_out_ver, self.conv_ver, stride = 1, padding = 0, bias = True, groups = 1)
         )
         
         ### DECODERS
         self.decode_drums = nn.Sequential(
-            nn.ConvTranspose2d(2, 2, self.conv_ver, stride = 1, padding = 0, bias = True),
+            nn.ConvTranspose2d(config.num_ch_out_ver, config.num_ch_out_hor, self.conv_ver, stride = 1, padding = 0, bias = True, groups = 1),
             # nn.ReLU(),
-            nn.ConvTranspose2d(2, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
+            nn.ConvTranspose2d(config.num_ch_out_hor, 2, self.conv_hor, stride = 1, padding = 0, bias = True, groups = 1),
             # nn.ReLU()
         )
         self.decode_voice = nn.Sequential(
-            nn.ConvTranspose2d(2, 2, self.conv_ver, stride = 1, padding = 0, bias = True),
+            nn.ConvTranspose2d(config.num_ch_out_ver, config.num_ch_out_hor, self.conv_ver, stride = 1, padding = 0, bias = True, groups = 1),
             # nn.ReLU(),
-            nn.ConvTranspose2d(2, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
+            nn.ConvTranspose2d(config.num_ch_out_hor, 2, self.conv_hor, stride = 1, padding = 0, bias = True, groups = 1),
             # nn.ReLU()
         )
         self.decode_bass = nn.Sequential(
-            nn.ConvTranspose2d(2, 2, self.conv_ver, stride = 1, padding = 0, bias = True),
+            nn.ConvTranspose2d(config.num_ch_out_ver, config.num_ch_out_hor, self.conv_ver, stride = 1, padding = 0, bias = True, groups = 1),
             # nn.ReLU(),
-            nn.ConvTranspose2d(2, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
+            nn.ConvTranspose2d(config.num_ch_out_hor, 2, self.conv_hor, stride = 1, padding = 0, bias = True, groups = 1),
             # nn.ReLU()
         )
         self.decode_other = nn.Sequential(
-            nn.ConvTranspose2d(2, 2, self.conv_ver, stride = 1, padding = 0, bias = True),
+            nn.ConvTranspose2d(config.num_ch_out_ver, config.num_ch_out_hor, self.conv_ver, stride = 1, padding = 0, bias = True, groups = 1),
             # nn.ReLU(),
-            nn.ConvTranspose2d(2, 2, self.conv_hor, stride = 1, padding = 0, bias = True),
+            nn.ConvTranspose2d(config.num_ch_out_hor, 2, self.conv_hor, stride = 1, padding = 0, bias = True, groups = 1),
             # nn.ReLU()
         )
         
         ### FULLY CONNECTED LAYERS
-        self.layer_first = nn.Linear(38, 128)
+        self.layer_first = nn.Sequential(
+            nn.Linear(config.num_ch_out_ver*16, 128),
+            nn.ReLU()
+        )
 
         self.layer_drums = nn.Sequential(
-            nn.Linear(128, 38),
-            # nn.ReLU()
+            nn.Linear(128,config.num_ch_out_ver*16),
+            nn.ReLU()
         )
-        self.layer_voice = nn.Sequential(
-            nn.Linear(128, 38),
-            # nn.ReLU()
-        )
-        self.layer_bass = nn.Sequential(
-            nn.Linear(128, 38),
-            # nn.ReLU()
-        )
-        self.layer_other = nn.Sequential(
-            nn.Linear(128, 38),
-            # nn.ReLU()
-        )
-        
-        # put the layers and deconv in libraries to make it easier to work with
-        self.layers = OrderedDict([
-            ("voice", self.layer_voice),
-            ("drums", self.layer_drums),
-            ("bass",  self.layer_bass),
-            ("other", self.layer_other)
-            ])
-            
-        self.deconvs = OrderedDict([
-            ("voice", self.decode_voice),
-            ("drums", self.decode_drums),
-            ("bass",  self.decode_bass),
-            ("other", self.decode_other)
-            ])
-                
-        # OUTPUT MATRIX
-        # Create a tensor variable with shape (15, 1, 30, 513)
-        # care, as the channels dimension is initialized with 1, and we are appending to it
-        self.final_output = Variable()
 
+        self.layer_voice = nn.Sequential(
+            nn.Linear(128,config.num_ch_out_ver*16),
+            nn.ReLU()
+        )
+
+        self.layer_bass = nn.Sequential(
+            nn.Linear(128,config.num_ch_out_ver*16),
+            nn.ReLU()
+        )
+        self.layer_other =  nn.Sequential(
+            nn.Linear(128,config.num_ch_out_ver*16),
+            nn.ReLU()
+        )
         
+        self.final_output = nn.ReLU()
+
     def forward(self, x):  
           
         encode = self.encoder(x)
-
         encode = encode.view(config.batch_size, -1)
-
         layer_output = self.layer_first(encode)
-        
-        output_flag = 0
-        
-        for key in self.layers:
-            
-            source_output = self.layers[key](layer_output)
+        layer_output_voice = self.layer_voice(layer_output) 
+        layer_output_voice = layer_output_voice.view(-1,config.num_ch_out_ver,16,1)
+        output_voice = self.decode_voice(layer_output_voice)
 
-            source_deconv = self.deconvs[key](source_output.view(-1,2,19,1))
+        layer_output_drums = self.layer_drums(layer_output)
+        layer_output_drums = layer_output_drums.view(-1,config.num_ch_out_ver,16,1)
+        output_drums = self.decode_drums(layer_output_drums)
 
-            if  output_flag == 0:
-                self.final_output = source_deconv
-                output_flag = 1
-            else:
-                self.final_output = torch.cat((source_deconv, self.final_output), dim = 1)
-                
-        return self.final_output
+        layer_output_bass = self.layer_bass(layer_output)
+        layer_output_bass = layer_output_bass.view(-1,config.num_ch_out_ver,16,1)
+        output_bass = self.decode_bass(layer_output_bass)
+
+        layer_output_other = self.layer_other(layer_output)
+        layer_output_other = layer_output_other.view(-1,config.num_ch_out_ver,16,1)
+        output_other = self.decode_other(layer_output_other)
+        
+        reshape_output = torch.cat((output_voice, output_drums, output_bass, output_other), 1)
+        output_final = self.final_output(reshape_output)
+
+        return output_final     
 
 
 
@@ -213,10 +201,12 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
     autoencoder =  AutoEncoder().cuda()
 
-    optimizer   =  torch.optim.Adam(autoencoder.parameters(), lr = 0.000001)
+    autoencoder.load_state_dict(torch.load('./log/model_e8000_b50_bs5_519.pt'))
 
-    #loss_func   =  nn.MSELoss( size_average=False )
-    loss_func   =  nn.L1Loss( size_average=False )
+    optimizer   =  torch.optim.Adadelta(autoencoder.parameters(), lr = 1, rho=0.95)
+
+    loss_func   =  nn.MSELoss( size_average=False )
+    #loss_func   =  nn.L1Loss( size_average=False )
 
     train_evol = []
 
@@ -268,7 +258,8 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
             train_loss += step_loss.item()
             if np.isnan(train_loss):
-               # import pdb;pdb.set_trace()
+               #import pdb;pdb.set_trace()
+               optimizer.zero_grad()
                print ("error output contains NaN")
             train_loss_vocals +=step_loss_vocals.item()
             train_loss_drums +=step_loss_drums.item()
@@ -278,8 +269,16 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
             train_beta_other_voc+=beta_other_voc.item()          
 
             step_loss.backward()
-
+            #clip gradient
+            # torch.nn.utils.clip_grad_norm_( autoencoder.parameters(),1)
+            
+            for p in autoencoder.parameters():
+                p.grad.data.clamp(-1,1)
+                  
+            
             optimizer.step()
+
+
             # print time.time()-start_time
 
             utils.progress(count,config.batches_per_epoch_train, suffix = 'training done')
@@ -348,24 +347,26 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
         # import pdb;pdb.set_trace()
         if (epoch+1)%config.save_every  == 0:
-            torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch)+'.pt')
+            torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch + 519)+'.pt')
             np.save(config.log_dir+'train_loss',np.array(train_evol))
             np.save(config.log_dir+'val_loss',np.array(val_evol))
         # import pdb;pdb.set_trace()
 
 
-    torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch)+'.pt')
+    torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch + 99)+'.pt')
 
 
-def evalNetwork(file_name, load_name='model_e4000_b500_bs1_1699', plot = False, synth = False):
+def evalNetwork(file_name, load_name='model_e4000_b50_bs5_1709', plot = False, synth = False):
     autoencoder_audio = AutoEncoder().cuda()
     epoch = 50
-    # autoencoder_audio.load_state_dict(torch.load(config.log_dir+load_name+'_'+str(epoch)+'.pt'))
-    autoencoder_audio.load_state_dict(torch.load(config.log_dir+'model1/'+load_name+'.pt'))
 
+    eps=1e-11
+
+    # autoencoder_audio.load_state_dict(torch.load(config.log_dir+load_name+'_'+str(epoch)+'.pt'))
+    autoencoder_audio.load_state_dict(torch.load('./log/model_e8000_b50_bs5_519.pt'))
     stat_file = h5py.File(config.stat_dir+'stats.hdf5', mode='r')
-    # import pdb;pdb.set_trace()
-    max_feat = np.array(stat_file["feats_maximus"])
+    # import pdb;pdb.set_trace():q!
+    max_feat = np.array(stat_file["feats_maximus"])   
     min_feat = np.array(stat_file["feats_minimus"])
 
     max_feat_tars = max_feat[:8,:].reshape(8,1,513)
@@ -405,8 +406,8 @@ def evalNetwork(file_name, load_name='model_e4000_b500_bs1_1699', plot = False, 
 
     for in_batch in in_batches:
         # import pdb;pdb.set_trace()
-        in_batch = Variable(torch.FloatTensor(in_batch)).cuda()
-        out_batch = autoencoder_audio(in_batch)
+        in_batch = Variable(torch.FloatTensor(in_batch)).cuda() + eps
+        out_batch = autoencoder_audio(in_batch) + eps
         out_batches.append(np.array(out_batch.data.cpu().numpy()))
         
 
@@ -422,7 +423,9 @@ def evalNetwork(file_name, load_name='model_e4000_b500_bs1_1699', plot = False, 
 
     others = out_batches[:,:,6:,:,:]
 
-    total_sources = vocals + bass + drums + others
+    total_sources = vocals + bass + drums + others 
+
+    total_sources = total_sources
 
     mask_vocals = vocals/total_sources
 

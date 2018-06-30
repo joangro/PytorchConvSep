@@ -5,17 +5,18 @@ import h5py
 
 import config
 
-def data_gen(mode = 'Train'):
+def data_gen(mode = 'Train', data_aug = False):
     stat_file = h5py.File(config.stat_dir+'stats.hdf5', mode='r')
     #import pdb;pdb.set_trace()
     max_feat = np.array(stat_file["feats_maximus"])
     min_feat = np.array(stat_file["feats_minimus"])
-
+    
     max_feat_tars = max_feat[:8,:].reshape(1,8,1,513)
     min_feat_tars = min_feat[:8,:].reshape(1,8,1,513)
 
     max_feat_ins = max_feat[-2:,:].reshape(1,2,1,513)
     min_feat_ins = min_feat[-2:,:].reshape(1,2,1,513)
+    
     if mode == "Train":
         in_dir=config.dir_hdf5
         num_batches = config.batches_per_epoch_train
@@ -23,7 +24,7 @@ def data_gen(mode = 'Train'):
         in_dir = config.dir_hdf5_test
         num_batches = config.batches_per_epoch_val
 
-    sources = ['voc_stft', 'drums_stft', 'bass_stft', 'acc_stft']
+    sources = range(4)
     
     file_list = [x for x in os.listdir(in_dir) if x.endswith('.hdf5') and not x.startswith('._')]
 
@@ -40,132 +41,76 @@ def data_gen(mode = 'Train'):
         #start_time = time.time()
 
         for i in range(max_files_to_process):
+        
+            if data_aug is True:
+                #p = np.random.random_sample()
+                p = 0.1
+                print (p)
+                if p < 0.4:
+                    mix_stft = []
+                    print ("IEE")
+                    for source in sources:
+                        print (source)
+                        file_index = np.random.randint(0,num_files)
+                        file_to_open = file_list[file_index]
 
-            file_index = np.random.randint(0,num_files)
-            
-            file_to_open = file_list[file_index]
+                        hdf5_file = h5py.File(in_dir+file_to_open, "r")
 
-            hdf5_file = h5py.File(in_dir+file_to_open, "r")
-
-            tar_stft = hdf5_file["tar_stft"]
-
-            mix_stft = hdf5_file['mix_stft']
-
-
-
-            file_len = mix_stft.shape[1]
-            # start_time = time.time()
-            for j in range(config.samples_per_file):
-                index=np.random.randint(0,file_len-config.max_phr_len)
-                # targets.append(np.concatenate((voc_stft[:,index:index+config.max_phr_len,:],drums_stft[:,index:index+config.max_phr_len,:],bass_stft[:,index:index+config.max_phr_len,:],acc_stft[:,index:index+config.max_phr_len,:]),axis=0))
-
-                targets.append(tar_stft[:,index:index+config.max_phr_len,:])
-                inputs.append(mix_stft[:,index:index+config.max_phr_len,:])
-            hdf5_file.close()
-
-            # print("One file took %0.00f" % (time.time()-start_time))
-        #import pdb;pdb.set_trace()
-        targets = (np.array(targets)-min_feat_tars)/(max_feat_tars-min_feat_tars)
-        inputs = (np.array(inputs)-min_feat_ins)/(max_feat_ins-min_feat_ins)
-        yield inputs, targets
-            
-            # p = np.random.random_sample()
-            
-            # # Randomize which batches are augmentated
-            # if config.data_aug is True and p < -1:
-            #     #print ('random')
-            #     # each sample is a different file
-            #     for j in range(config.samples_per_file):
-                    
-            #         # Random file for each source
-            #         file_index = [np.random.randint(0,num_files) for x in range(4)]
-                    
-            #         source_i = 0
-                    
-            #         mix_stft = []
-            #         mix_stft = np.ndarray(mix_stft)
-                    
-            #         sources_stft = []
-                    
-            #         for source in sources:
-            #             file_to_open = file_list[file_index[source_i]]
+                        source_stft = hdf5_file["tar_stft"]
                         
-            #             hdf5_file = h5py.File(in_dir+file_to_open, "r")
-                        
-            #             source_stft = hdf5_file[source]
-            #             file_len = source_stft.shape[1]
-                        
-            #             # random stft time index
-            #             index=np.random.randint(0,file_len-config.max_phr_len)
-                        
-            #             source_stft = source_stft[:,index:index+config.max_phr_len,:]
-                        
-            #             if source_i == 0:
-            #                 sources_stft = source_stft
+                        file_len = source_stft.shape[1]
+                                                
+                        source_stft_c = source_stft[source*2:source*2+2,:,:]
+                        for j in range(config.samples_per_file):
+                            index=np.random.randint(0,file_len-config.max_phr_len)
+                            source_stft_f = source_stft_c[:,index:index+config.max_phr_len,:]
                             
-            #                 # this might be wrong, but I think it still makes sense:
-            #                 mix_stft = source_stft/4
-                            
-            #             else:
-            #                 sources_stft = np.concatenate((sources_stft, source_stft),axis=0)
-                            
-            #                 mix_stft += source_stft/4
-                            
-            #             source_i += 1
+                        if source is 0:
+                            mix_stft = source_stft_f
+                            targets_all = source_stft_f
+                        else:
+                            mix_stft += source_stft_f
+                            targets_all =np.concatenate((targets_all,source_stft_f), axis = 0)
                         
-            #         targets.append(sources_stft)
-            #         inputs.append(mix_stft)
+                    targets.append(targets_all)
+                    inputs.append(mix_stft)
+                #yield inputs, targets
 
-            # else:
-
+                    
+            else:
+                file_index = np.random.randint(0,num_files)
                 
-                # Normalize data 
-        #         for j in range(config.samples_per_file):
-        #             index=np.random.randint(0,file_len-config.max_phr_len)
-        #             stfts = [ voc_stft[:,index:index+config.max_phr_len,:],\
-        #                       drums_stft[:,index:index+config.max_phr_len,:],\
-        #                       bass_stft[:,index:index+config.max_phr_len,:],\
-        #                       acc_stft[:,index:index+config.max_phr_len,:],\
-        #                       mix_stft[:,index:index+config.max_phr_len,:]]   
-        #             source_index = 0
-                    
-        #             for source_stft in stfts:
-        #                 stft_max = np.amax(source_stft[:,:,:], axis = 1)
-                        
-        #                 if np.amax(stft_max) is not 0:
-        #                     stft_max[stft_max == 0] = 0.0001 # for the indexes where the maximum is still zero
-        #                     stft_norm = [source_stft[:,x,:] / stft_max for x in range(config.max_phr_len)]
-        #                     stft_norm = np.array(stft_norm).view().reshape((2, 30, 513))
-        #                 else:
-        #                     # in the case where all the stft is made of zeros
-        #                     stft_norm = source_stft
-                        
-        #                 #print(np.array(stft_norm).shape)
-        #                 #print (np.amax(np.array(stft_norm)))
-        #                 if source_index < 4:
-        #                     if source_index == 0:
-        #                         stft_stream = np.array(source_stft)
-        #                     else:
-        #                         stft_stream = np.concatenate((stft_stream, stft_norm), axis = 0)
-        #                 else:
-        #                     inputs.append(stft_norm)
-        #                 source_index += 1
-        #             targets.append(stft_stream)
-                
-        # #print(time.time()-start_time)
-        # # normalization
-        # '''
-        # max_inp = np.amax(inputs,axis = 0)
-        # print (max_inp.shape)
-        # '''
-        # # print (np.array(targets).shape)
-        # #print (np.array(inputs).shape)
-        # yield np.array(inputs), np.array(targets)
+                file_to_open = file_list[file_index]
+
+                hdf5_file = h5py.File(in_dir+file_to_open, "r")
+
+                tar_stft = hdf5_file["tar_stft"]
+
+                mix_stft = hdf5_file['mix_stft']
 
 
-    
-    #import pdb;pdb.set_trace()
 
+                file_len = mix_stft.shape[1]
+                # start_time = time.time()
+                for j in range(config.samples_per_file):
+                    flag = False
+                    while flag is False:
+                        index=np.random.randint(0,file_len-config.max_phr_len)#;print ('small')
+                    # targets.append(np.concatenate((voc_stft[:,index:index+config.max_phr_len,:],drums_stft[:,index:index+config.max_phr_len,:],bass_stft[:,index:index+config.max_phr_len,:],acc_stft[:,index:index+config.max_phr_len,:]),axis=0))
+                        #import pdb;pdb.set_trace()
+                        if mix_stft[:,index:index+config.max_phr_len,:425].mean() > 0.02:
+                            targets.append(tar_stft[:,index:index+config.max_phr_len,:])
+                            inputs.append(mix_stft[:,index:index+config.max_phr_len,:])
+                            flag = True
+                hdf5_file.close()
+
+                # print("One file took %0.00f" % (time.time()-start_time))
+            #import pdb;pdb.set_trace()
+            targets_norm = (np.array(targets)-min_feat_tars)/(max_feat_tars-min_feat_tars)
+            inputs_norm = (np.array(inputs)-min_feat_ins)/(max_feat_ins-min_feat_ins)
+            #yield inputs, targets
+        yield inputs_norm, targets_norm
+            
 def get_stats():
     in_dir=config.dir_hdf5
     num_batches = config.batches_per_epoch_train
@@ -219,7 +164,7 @@ def get_stats():
     
 def main():
     # get_stats(feat='feats')
-    gen = data_gen()
+    gen = data_gen(data_aug = True)
     start_time = time.time()
     for inp, tar in gen:
         print(time.time()-start_time)
