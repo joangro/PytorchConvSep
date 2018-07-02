@@ -16,7 +16,7 @@ import random
 from PytorchConvSep import AutoEncoder
 
 
-def evalNets(pcs_model = 'model_e4000_b100_bs5_139', file_to_eval = "None", path = '/media/joan/Data/Users/Joan/Desktop/DATA/STEMS'):
+def evalNets(pcs_model = 'model_e8000_b50_bs5_3429', file_to_eval = "None", path = '/home/pc2752/share/JoanMaster/PytorchConvSep/data_h5py_test'):
 
     autoencoder_audio = AutoEncoder().cuda()
     autoencoder_audio.load_state_dict(torch.load(config.log_dir+pcs_model+'.pt'))
@@ -33,15 +33,17 @@ def evalNets(pcs_model = 'model_e4000_b100_bs5_139', file_to_eval = "None", path
 
     wav_files=[x for x in os.listdir(config.wav_dir_test) if x.endswith('.stem.mp4') and not x.startswith(".")]
 
-    random_files = [random.choice(wav_files) for x in range(150)]
+    random_files = [random.choice(wav_files) for x in range(50)]
 
-    file_length = int(3e5)
+    file_length = int(44100*6)
     
     SDR_error = []
 
     SIR_error = []
 
     SAR_error = []
+
+    ISR_error = []
 
     for file_name in random_files:
 
@@ -150,22 +152,31 @@ def evalNets(pcs_model = 'model_e4000_b100_bs5_139', file_to_eval = "None", path
 
         target_vocals = np.append(audio[4], zero_pad_vocals,0)
         
-        targets = np.transpose(np.concatenate((target_drums, target_bass, target_others, target_vocals), axis = 1))
-
-        index=np.random.randint(0,target_vocals.shape[0]-file_length) 
+        targets = np.transpose(np.concatenate((target_vocals, target_drums, target_bass, target_others), axis = 1))
         
-        #import pdb;pdb.set_trace()
+        index = np.random.randint(0,target_vocals.shape[0]-file_length)
+        import pdb;pdb.set_trace()
+        targets_no_zero = targets[:,index:index+file_length]
+        targets_no_zero[targets_no_zero == 0] = 1e-8
 
-        [SDR, SAR, SIR, _] = mir_eval.separation.bss_eval_sources(targets[:,index:index+file_length] + 1e-7, estimated[:,index:index+file_length])
+        estimated_no_zero = estimated[:,index:index+file_length]
+        estimated_no_zero[estimated_no_zero == 0] = 1e-8
+
+        [SDR, ISR, SIR, SAR, _] = mir_eval.separation.bss_eval_images(targets_no_zero, estimated_no_zero)
 
         SDR_error.append(SDR)
         SAR_error.append(SAR)
         SIR_error.append(SIR)
-        
+        ISR_error.append(ISR)
+
+        for sdr in SDR:
+            print (sdr)
+
         np.save(config.err_dir+'SDR_error',np.array(SDR_error))
         np.save(config.err_dir+'SAR_error',np.array(SAR_error))
         np.save(config.err_dir+'SIR_error',np.array(SIR_error))
-    
+        np.save(config.err_dir+'ISR_error',np.array(ISR_error))
+
 if __name__ == "__main__":
     if len(sys.argv) is 1:
         evalNets()
