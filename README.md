@@ -5,7 +5,7 @@ A Deep Learning approach for signal separation. Presented as the final degree pr
 
 ## Baseline model (_DeepConvSep_)
 
-Read more about it in [DeepConvSep repository](https://github.com/MTG/DeepConvSep/blob/master/README.md) and in the following article: [ [2](_Monoaural Audio Source Separation Using Deep Convolutional Neural Networks_, P.Chandna)](http://mtg.upf.edu/node/3680). 
+Read more about it in [DeepConvSep repository](https://github.com/MTG/DeepConvSep/blob/master/README.md) and in the following article: [ [2] (_Monoaural Audio Source Separation Using Deep Convolutional Neural Networks_, P.Chandna)](http://mtg.upf.edu/node/3680). 
 
 The original _DeepConvSep_ framework proposes and implements a CNN (Convolutional Neural Network) approach in order to obtain a mask-based approach in order to separate various instruments from an audio mixture. Aswell, it includes an autoencoder architecture in order to obtain compressed representations of data in order to achieve a better result and avoid overfitting, plus making the algorithm convenient for low-latency applications, due to its good performance. 
 
