@@ -101,7 +101,7 @@ IMPORTANT NOTE: The files to separate must be in STEM format (but only with the 
 
 - Pritish Chandna (pritish.chandna@upf.edu), PhD Student in Music Information Research Lab (Universitat Pompeu Fabra) 
 
-- Joan Grau (joan.grau01@estudiant.upf.edu), graduated Audiovisual Systems Engineering student. 
+- Joan Grau (joan.grau01@estudiant.upf.edu), graduated Audiovisual Systems Engineering student (Universitat Pompeu Fabra) 
 
 ## Presented Thesis
 
