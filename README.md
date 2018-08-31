@@ -61,7 +61,7 @@ pip3 install mir_eval
 
 - _evalNet.py_: MIR evaluation tools used to measure the quality of the audio separation. Not recommended to be used.
 
-- **_config.py_**: configuration file with the paths for the training and evaluation step of the network. Change accord to the path where the STEM files are located locally.
+- **_config.py_**: configuration file with the paths for the training and evaluation step of the network. Change according to the path where the STEM files are located locally.
 
 - Running the algorithm:
 
