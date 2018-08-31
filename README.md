@@ -41,7 +41,73 @@ The dataset was treated by using STFT's of a size of 1024 bins and a Hanning win
 
 - Data transformations were applied in order to do data augmentation, random STFT creation and mixing, channel muting and random song mixing in the same batch are implemented.
 
+## Instructions
 
+🚨 ATTENTION: Only works in versions of Python 3.6 or higher! 🚨
+
+Install packages:
+```
+pip3 install torch torchvision
+pip3 install h5py stempeg
+pip3 install numpy matplotlib scipy
+pip3 install mir_eval
+```
+
+- Important files:
+
+- _PytorchConvSep.py_: main file of the algorithm, implements all of the main functions such as the network architecture, the training and the evaluation methods of the algorithm.
+
+- _data_pipeline.py_: file controling and processing the data feeding into the algorithm during the training step. Not recommended to change.
+
+- _evalNet.py_: MIR evaluation tools used to measure the quality of the audio separation. Not recommended to be used.
+
+- **_config.py_**: configuration file with the paths for the training and evaluation step of the network. Change accord to the path where the STEM files are located locally.
+
+- Running the algorithm:
+
+(The current release still doesn't support training and evaluating into fully different releases, but they can be run separately by using the next commands)
+
+Train the model by using the following command, the first argument <optional_model> allows the user to load the current network with an already trained model and keep training it.
+
+```
+python3 PytorchConvSep.py --train <optional_model>
+```
+
+Evaluate and generate files from the network by using the following commands:
+
+Synthesize file:
+```
+python3 PytorchConvSep.py <filename>
+```
+
+Plot and synthesize file:
+```
+python3 PytorchConvSep.py <filename> -- plot
+```
+
+Plot file results:
+```
+python3 PytorchConvSep.py <filename> -- plot --ns
+```
+
+Further help by using:
+```
+python3 PytorchConvSep.py --help
+```
+
+IMPORTANT NOTE: The files to separate must be in STEM format (but only with the standard two stereophonic channels, please see the [original STEM website](https://www.stems-music.com/stem-creator-tool/) for information on how to convert files to this format.
+
+## Contributors
+
+- Pritish Chandna (pritish.chandna@upf.edu), PhD Student in Music Information Research Lab (Universitat Pompeu Fabra) 
+
+- Joan Grau (joan.grau01@estudiant.upf.edu), graduated Audiovisual Systems Engineering student. 
+
+## Presented Thesis
+
+Incoming (still not uploaded at university repository as of 08/2018)
+
+## References
 
 [2] P. Chandna, M. Miron, J. Janer, and E. Gomez, “Monoaural audio source separation using deep convolutional neural networks” International Conference on Latent Variable Analysis and Signal Separation, 2017.
 
