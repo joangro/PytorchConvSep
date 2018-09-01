@@ -2,6 +2,7 @@
 
 A Deep Learning approach for signal separation. Presented as the final degree project with the title "Understanding and Improving Current Deep Learning Source Separation Algorithms", this repository contains all of the technical aspects of the project. The project's objective was to improve upon an already established state-of-the-art algorithm, by adding various improvements later explained. This repository only contains the python code and some examples, does not include the original dataset.
 
+Read the thesis here: [Understanding and Improving Deep Learning Source Separation Algorithms, Joan Grau](https://github.com/joangro/PytorchConvSep/blob/master/TFG_Grau_Noel_%20Joan.pdf)
 
 ## Baseline model (_DeepConvSep_)
 
@@ -105,7 +106,7 @@ IMPORTANT NOTE: The files to separate must be in STEM format (but only with the 
 
 ## Presented Thesis
 
-Incoming (still not uploaded at university repository as of 08/2018)
+Read the thesis here: [Understanding and Improving Deep Learning Source Separation Algorithms, Joan Grau](https://github.com/joangro/PytorchConvSep/blob/master/TFG_Grau_Noel_%20Joan.pdf)
 
 ## References
 
