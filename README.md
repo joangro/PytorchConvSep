@@ -39,7 +39,7 @@ The dataset was treated by using STFT's of a size of 1024 bins and a Hanning win
 
 ![Newframework](https://i.imgur.com/VuB3T5q.png)
 
-- Data transformations were applied in order to do data augmentation, random STFT creation and mixing, channel muting and random song mixing in the same batch are implemented.
+- Data transformations were applied in order to perform data augmentation, random STFT creation and mixing, channel muting and random song mixing in the same batch are implemented.
 
 ## Instructions
 
