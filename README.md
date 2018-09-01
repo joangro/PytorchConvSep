@@ -82,12 +82,12 @@ python3 PytorchConvSep.py <filename>
 
 Plot and synthesize file:
 ```
-python3 PytorchConvSep.py <filename> -- plot
+python3 PytorchConvSep.py <filename> --plot
 ```
 
 Plot file results:
 ```
-python3 PytorchConvSep.py <filename> -- plot --ns
+python3 PytorchConvSep.py <filename> --plot --ns
 ```
 
 Further help by using:
