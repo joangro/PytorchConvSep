@@ -55,13 +55,13 @@ pip3 install mir_eval
 
 - Important files:
 
-- _PytorchConvSep.py_: main file of the algorithm, implements all of the main functions such as the network architecture, the training and the evaluation methods of the algorithm.
+  - _PytorchConvSep.py_: main file of the algorithm, implements all of the main functions such as the network architecture, the training and the evaluation methods of the algorithm.
 
-- _data_pipeline.py_: file controling and processing the data feeding into the algorithm during the training step. Not recommended to change.
+  - _data_pipeline.py_: file controling and processing the data feeding into the algorithm during the training step. Not recommended to change.
 
-- _evalNet.py_: MIR evaluation tools used to measure the quality of the audio separation. Not recommended to be used.
+  - _evalNet.py_: MIR evaluation tools used to measure the quality of the audio separation. Not recommended to be used.
 
-- **_config.py_**: configuration file with the paths for the training and evaluation step of the network. Change according to the path where the STEM files are located locally.
+  - **_config.py_**: configuration file with the paths for the training and evaluation step of the network. Change according to the path where the STEM files are located locally.
 
 - Running the algorithm:
 
