@@ -3,8 +3,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+.DS*
+._*
 
 # Distribution / packaging
 /log
 /outputs
+/dn_log
+
