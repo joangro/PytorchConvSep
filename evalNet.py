@@ -155,7 +155,7 @@ def evalNets(pcs_model = 'model_e8000_b50_bs5_3429', file_to_eval = "None", path
         targets = np.transpose(np.concatenate((target_vocals, target_drums, target_bass, target_others), axis = 1))
         
         index = np.random.randint(0,target_vocals.shape[0]-file_length)
-        import pdb;pdb.set_trace()
+        #import pdb;pdb.set_trace()
         targets_no_zero = targets[:,index:index+file_length]
         targets_no_zero[targets_no_zero == 0] = 1e-8
 
@@ -171,11 +171,11 @@ def evalNets(pcs_model = 'model_e8000_b50_bs5_3429', file_to_eval = "None", path
 
         for sdr in SDR:
             print (sdr)
-
-        np.save(config.err_dir+'SDR_error',np.array(SDR_error))
-        np.save(config.err_dir+'SAR_error',np.array(SAR_error))
-        np.save(config.err_dir+'SIR_error',np.array(SIR_error))
-        np.save(config.err_dir+'ISR_error',np.array(ISR_error))
+        if not np.isnan(SDR).any():
+            np.save(config.err_dir+'SDR_error',np.array(SDR_error))
+            np.save(config.err_dir+'SAR_error',np.array(SAR_error))
+            np.save(config.err_dir+'SIR_error',np.array(SIR_error))
+            np.save(config.err_dir+'ISR_error',np.array(ISR_error))
 
 if __name__ == "__main__":
     if len(sys.argv) is 1:

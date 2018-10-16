@@ -17,12 +17,12 @@ import stempeg
 
 def loss_calc(inputs, targets, loss_func, autoencoder):
 
-    eps=1e-9
+    eps=1e-11
     #import pdb;pdb.set_trace()
     targets = targets *np.linspace(1.0,0.5,513)
 
     targets_cuda = Variable(torch.FloatTensor(targets)).cuda() + eps
-    inputs = Variable(torch.FloatTensor(inputs)).cuda() + eps
+    inputs = Variable(torch.FloatTensor(inputs)).cuda() + 1e-30
 
 
     output = autoencoder(inputs) + eps
@@ -201,7 +201,7 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
     autoencoder =  AutoEncoder().cuda()
 
-    autoencoder.load_state_dict(torch.load('./log/model_e8000_b50_bs5_519.pt'))
+    autoencoder.load_state_dict(torch.load('./log/model_e8000_b50_bs5_3469.pt'))
 
     optimizer   =  torch.optim.Adadelta(autoencoder.parameters(), lr = 1, rho=0.95)
 
@@ -347,7 +347,7 @@ def trainNetwork(save_name = 'model_e' + str(config.num_epochs) + '_b' + str(con
 
         # import pdb;pdb.set_trace()
         if (epoch+1)%config.save_every  == 0:
-            torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch + 519)+'.pt')
+            torch.save(autoencoder.state_dict(), config.log_dir+save_name+'_'+str(epoch + 3470)+'.pt')
             np.save(config.log_dir+'train_loss',np.array(train_evol))
             np.save(config.log_dir+'val_loss',np.array(val_evol))
         # import pdb;pdb.set_trace()
@@ -360,12 +360,18 @@ def evalNetwork(file_name, load_name='model_e4000_b50_bs5_1709', plot = False, s
     autoencoder_audio = AutoEncoder().cuda()
     epoch = 50
 
-    eps=1e-11
+    eps=1e-30
 
     # autoencoder_audio.load_state_dict(torch.load(config.log_dir+load_name+'_'+str(epoch)+'.pt'))
-    autoencoder_audio.load_state_dict(torch.load('./log/model_e8000_b50_bs5_519.pt'))
+
+    autoencoder_audio.load_state_dict(torch.load('./log/model_e8000_b50_bs5_3369.pt'))
     stat_file = h5py.File(config.stat_dir+'stats.hdf5', mode='r')
-    # import pdb;pdb.set_trace():q!
+    '''
+    import pdb;pdb.set_trace()
+    enc = autoencoder_audio.encoder
+    weight = enc[0].weight.data.cpu().numpy()
+    plt.imshow(weight[0,0,:,:])
+    '''
     max_feat = np.array(stat_file["feats_maximus"])   
     min_feat = np.array(stat_file["feats_minimus"])
 
@@ -406,14 +412,14 @@ def evalNetwork(file_name, load_name='model_e4000_b50_bs5_1709', plot = False, s
 
     for in_batch in in_batches:
         # import pdb;pdb.set_trace()
-        in_batch = Variable(torch.FloatTensor(in_batch)).cuda() + eps
-        out_batch = autoencoder_audio(in_batch) + eps
+        in_batch = Variable(torch.FloatTensor(in_batch)).cuda()
+        out_batch = autoencoder_audio(in_batch)
         out_batches.append(np.array(out_batch.data.cpu().numpy()))
         
 
     out_batches = np.array(out_batches)
     
-
+    #out_batches[out_batches == 0] = 1e-6
 
     vocals = out_batches[:,:,:2,:,:]
 
