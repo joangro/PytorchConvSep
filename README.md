@@ -34,7 +34,7 @@ The dataset was treated by using STFT's of a size of 1024 bins and a Hanning win
 
 - The first improvement made was to update the framework from the old discontinued _lasagne_ into a current supported and updated one, from which Pytorch was chosen, which is a deep-learning and tensor-based framework.
 
-![pytorch-logo](https://pytorch.org/static/img/logos/pytorch-logo-dark.png)
+![pytorch-logo](https://cdn-images-1.medium.com/max/1200/1*KKADWARPMxHb-WMxCgW_xA.png)
 
 - The architecture was further upgraded in order to support and work with _stereophonic_ signals, for which the new architecture can be depicted in the following figure:
 
