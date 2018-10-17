@@ -48,10 +48,10 @@ The dataset was treated by using STFT's of a size of 1024 bins and a Hanning win
 
 Install packages:
 ```
-pip3 install torch torchvision
-pip3 install h5py stempeg
-pip3 install numpy matplotlib scipy
-pip3 install mir_eval
+pip install torch torchvision
+pip install h5py stempeg
+pip install numpy matplotlib scipy
+pip install mir_eval
 ```
 
 - Important files:
