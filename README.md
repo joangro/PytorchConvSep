@@ -40,11 +40,11 @@ The dataset was treated by using STFT's of a size of 1024 bins and a Hanning win
 
 ![Newframework](https://i.imgur.com/VuB3T5q.png)
 
-- Data transformations were applied in order to perform data augmentation, random STFT creation and mixing, channel muting and random song mixing in the same batch are implemented.
+- Data transformations were applied in order to perform data augmentation, random STFT creation and mixing, channel muting and random song mixing in the same batch.
 
 ## Instructions
 
-🚨 ATTENTION: Only works in versions of Python 3.6 or higher! 🚨
+🚨 ATTENTION: Only supported in versions of Python 3.6.X or higher! 🚨
 
 Install packages:
 ```
@@ -102,7 +102,7 @@ IMPORTANT NOTE: The files to separate must be in STEM format (but only with the 
 
 - Pritish Chandna (pritish.chandna@upf.edu), PhD Student in Music Information Research Lab (Universitat Pompeu Fabra) 
 
-- Joan Grau (joan.grau01@estudiant.upf.edu), graduated Audiovisual Systems Engineering student (Universitat Pompeu Fabra) 
+- Joan Grau (joan.grau01@estudiant.upf.edu), university graduate in Audiovisual Systems Engineering (Universitat Pompeu Fabra) 
 
 ## Presented Thesis
 
