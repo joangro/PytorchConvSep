@@ -96,7 +96,7 @@ Further help by using:
 python3 PytorchConvSep.py --help
 ```
 
-IMPORTANT NOTE: The files to separate must be in STEM format (but only with the standard two stereophonic channels, please see the [original STEM website](https://www.stems-music.com/stem-creator-tool/) for information on how to convert files to this format.
+IMPORTANT NOTE: The files to separate must be in STEM format, but only with the standard two stereophonic channels, please see the [original STEM website](https://www.stems-music.com/stem-creator-tool/) for information on how to convert files to this format.
 
 ## Contributors
 
