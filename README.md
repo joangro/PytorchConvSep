@@ -1,30 +1,36 @@
 # PytorchConvSep
 
-A Deep Learning approach for signal separation. Presented as the final degree project with the title "Understanding and Improving Current Deep Learning Source Separation Algorithms", this repository contains all of the technical aspects of the project. The project's objective was to improve upon an already established state-of-the-art algorithm, by adding various improvements later explained. This repository only contains the python code and some examples, does not include the original dataset.
+A Deep Learning approach for signal separation. Presented as the final degree project with the title "Understanding and Improving Current Deep Learning Source Separation Algorithms", this repository contains all of the final implementation of the project. The project's objective was to improve an existing and established state-of-the-art algorithm, by adding various improvements later explained in this document. 
 
-Read the thesis here: [Understanding and Improving Deep Learning Source Separation Algorithms, Joan Grau](https://github.com/joangro/PytorchConvSep/blob/master/TFG_Grau_Noel_%20Joan.pdf)
+This repository includes all the resources used and created from the project, except for the original dataset, which is later linked to its external provider.
+
+you can read the final thesis here: [Understanding and Improving Deep Learning Source Separation Algorithms, Joan Grau](https://github.com/joangro/PytorchConvSep/blob/master/TFG_Grau_Noel_%20Joan.pdf)
 
 ## Baseline model (_DeepConvSep_)
 
-Read more about it in [DeepConvSep repository](https://github.com/MTG/DeepConvSep/blob/master/README.md) and in the following article: [ [2] (_Monoaural Audio Source Separation Using Deep Convolutional Neural Networks_, P.Chandna)](http://mtg.upf.edu/node/3680). 
+The original _DeepConvSep_ framework proposes and implements a CNN (Convolutional Neural Network) approach to obtain a mask-based separation of various instruments from an audio mixture. Aswell, it includes an autoencoder on its architecture as a middle step, used to obtain compressed representations of data whixh helps to achieve a better result and avoid overfitting. This in turn improves its performance, which makes the algorithm convenient for low-latency applications. 
 
-The original _DeepConvSep_ framework proposes and implements a CNN (Convolutional Neural Network) approach in order to obtain a mask-based approach in order to separate various instruments from an audio mixture. Aswell, it includes an autoencoder architecture in order to obtain compressed representations of data in order to achieve a better result and avoid overfitting, plus making the algorithm convenient for low-latency applications, due to its good performance. 
-
-The overall architecture of the net can be seen in the following figure:
+The overall architecture of the network is represented in the following figure:
 
 ![Oldframework](https://i.imgur.com/2GnEfAv.png)
 
-Where the forward step of the algorithm goes left to right, taking STFT's as the features of the network. (Standarized at 30 time bins -5ms- and with a size of 513 frequency bins -due to the STFT transform being made with a size of 1024 bins).
+The forward step of the algorithm goes from left to right, taking [STFT's](https://en.wikipedia.org/wiki/Short-time_Fourier_transform) (Short-time Fourier transform) as the input data of the network. 
 
-The algorithm combines CNN with an autoencoder by doing two convolutions sequentially, first vertically, in order to obtain representations of the _frequency_ information of the STFT, and then taking this output and sending it to the horizontal convolutional layer, which uses this features in order to model the time-frequency characteristics of the input.
+The STFT size is set at 30 time units -exactly 5ms- and has a frequency bandwidth of 513 units, as the STFT transform was made with a size of 1024 units.
 
-The generated convolved output is then sent into a fully connected layer, with 128 units, greatly reducing the number of inputs in order to create a bottleneck layer, common in autoencoders. This step is done in order to avoid overfitting and to reduce the number of features of the data into a smaller number while keeping the most robust inputs to represent the data.
+The algorithm combines CNN with an autoencoder by doing two convolutions sequentially, first vertically, used to obtain representations of the _frequency_ information of the STFT, and then taking this output and sending it to the horizontal convolutional layer, which uses this features to model the time-frequency characteristics of the input.
 
-The next step is the decoding step, which sends the previously encoded output into four different branches, one for each different source, which  independently deconvolute and reconstruct the STFT for each different source independently, which is then compared to the original to calculate the error and backpropagate.
+The generated convolved output is then sent into a fully connected layer, with 128 units, greatly reducing the number of inputs, otherwise known as a bottleneck layer, common in autoencoders. This step is done to avoid overfitting and to reduce the number of features of the data into a smaller number, while keeping the most robust inputs to represent the data.
+
+The next step is the decoding step, which sends the previously encoded output into four different branches, one for each  source, which independently deconvolute and reconstruct the STFT for each different source independently, which is then compared to the original to calculate the error and start the backpropagation step.
+
+For more details, please see the [DeepConvSep repository](https://github.com/MTG/DeepConvSep/blob/master/README.md) and the following article: [ [2] (_Monoaural Audio Source Separation Using Deep Convolutional Neural Networks_, P.Chandna)](http://mtg.upf.edu/node/3680). 
 
 ## Dataset (_MusDB_ [3])
 
-The dataset chosen to be used in this project is the _MusDB_ dataset which can be consulted and freely downloaded in the following [(link)](https://sigsep.github.io/datasets/musdb.html). This dataset contains a total of 150 different profesionally-mixed songs, 100 of which are distributed in training and 50 in evaluation. These files are encoded in a STEM format which is a multi-track format encoded in _.mp4_ (a lossy format in contrast to the original DSD100 dataset which used loseless _.wav_ format).
+The dataset chosen in this project is the _MusDB_ dataset which can be freely downloaded on its  [(official site)](https://sigsep.github.io/datasets/musdb.html). This dataset contains a total of 150 different profesionally-mixed songs.
+
+100 of those songs are used in training and 50 used in evaluation. These files are encoded in a STEM format which is a multi-track format encoded in _.mp4_ (a lossy format in contrast to the original DSD100 dataset which used loseless _.wav_ format).
 
 The files have a sampling frequency of 44.1 kHz and have an average duration of 236 ± 95 seconds. 
 
@@ -32,19 +38,19 @@ The dataset was treated by using STFT's of a size of 1024 bins and a Hanning win
 
 ## PytorchConvSep Improvements
 
-- The first improvement made was to update the framework from the old discontinued _lasagne_ into a current supported and updated one, from which Pytorch was chosen, which is a deep-learning and tensor-based framework.
+- The first improvement made was to update the framework from the old discontinued _lasagne_ into a currently supported and updated one. Pytorch was chosen, which is a deep-learning and tensor-based framework.
 
 ![pytorch-logo](https://cdn-images-1.medium.com/max/1200/1*KKADWARPMxHb-WMxCgW_xA.png)
 
-- The architecture was further upgraded in order to support and work with _stereophonic_ signals, for which the new architecture can be depicted in the following figure:
+- The architecture was further upgraded in order to support and work with _stereophonic_ signals. This also meant taht the architecture had to be slightly modified, as seen in the following figure:
 
 ![Newframework](https://i.imgur.com/VuB3T5q.png)
 
-- Data transformations were applied in order to perform data augmentation, random STFT creation and mixing, channel muting and random song mixing in the same batch.
+- Data transformations were applied to perform data augmentation: random STFT creation and mixing, channel muting and random song mixing in the same batch.
 
 ## Instructions
 
-🚨 ATTENTION: Only supported in versions of Python 3.6.X or higher! 🚨
+🚨 Note: Python 3.6.X or higher versions are needed to run the code and its dependencies! 🚨
 
 Install packages:
 ```
@@ -58,11 +64,11 @@ pip install mir_eval
 
   - _PytorchConvSep.py_: main file of the algorithm, implements all of the main functions such as the network architecture, the training and the evaluation methods of the algorithm.
 
-  - _data_pipeline.py_: file controling and processing the data feeding into the algorithm during the training step. Not recommended to change.
+  - _data_pipeline.py_: file controling and processing the data feeding into the algorithm during the training step. Change with caution.
 
-  - _evalNet.py_: MIR evaluation tools used to measure the quality of the audio separation. Not recommended to be used.
+  - _evalNet.py_: MIR evaluation tools used to measure the quality of the audio separation.
 
-  - **_config.py_**: configuration file with the paths for the training and evaluation step of the network. Change according to the path where the STEM files are located locally.
+  - **_config.py_**: configuration file with the paths for the training and evaluation step of the network. Change according to the absolute path where the STEM files are located.
 
 - Running the algorithm:
 
